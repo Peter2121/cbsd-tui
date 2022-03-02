@@ -46,7 +46,7 @@ type CbsdJail struct {
 	Parameters []PairString
 }
 
-var USE_DOAS = true
+var USE_DOAS = false
 
 var doasProgram = "/usr/local/bin/doas"
 var cbsdJlsDisplay = []string{"jname", "ip4_addr", "host_hostname", "status", "astart", "ver", "path", "interface", "baserw", "vnet"}
@@ -132,7 +132,7 @@ func CreateActionsLogDialog(txtout *text.Widget) *dialog.Widget {
 
 func MakeSnapshotJailDialog(jname string) *dialog.Widget {
 	htxt := text.New("Snapshot jail "+jname, text.Options{Align: gowid.HAlignMiddle{}})
-	htxtst := styled.New(htxt, gowid.MakePaletteRef("yellow"))
+	htxtst := styled.New(htxt, gowid.MakePaletteRef("magenta"))
 	edsnapname := edit.New(edit.Options{Caption: "Snapshot name: ", Text: "gettimeofday"})
 	edsnapnamest := styled.New(edsnapname, gowid.MakePaletteRef("green"))
 	edlines := pile.New([]gowid.IContainerWidget{
@@ -169,7 +169,7 @@ func MakeSnapshotJailDialog(jname string) *dialog.Widget {
 
 func MakeCloneJailDialog(jname string) *dialog.Widget {
 	htxt := text.New("Clone jail "+jname, text.Options{Align: gowid.HAlignMiddle{}})
-	htxtst := styled.New(htxt, gowid.MakePaletteRef("yellow"))
+	htxtst := styled.New(htxt, gowid.MakePaletteRef("magenta"))
 	ednewjname := edit.New(edit.Options{Caption: "New jail name: ", Text: jname + "clone"})
 	ednewjnamest := styled.New(ednewjname, gowid.MakePaletteRef("green"))
 	ednewhname := edit.New(edit.Options{Caption: "New host name: ", Text: jname})
@@ -591,6 +591,10 @@ func (jail *CbsdJail) StartStopJail() {
 	var args []string
 	var command string
 	if jail.IsRunning {
+		if cbsdJailConsoleActive == jail.Name {
+			SendTerminalCommand("exit")
+			cbsdJailConsoleActive = ""
+		}
 		txtheader = "Stopping jail...\n"
 		if USE_DOAS {
 			args = append(args, "cbsd")
@@ -998,6 +1002,7 @@ func main() {
 		"test2focus":    gowid.MakePaletteEntry(gowid.ColorMagenta, gowid.ColorBlack),
 		"test2notfocus": gowid.MakePaletteEntry(gowid.ColorCyan, gowid.ColorBlack),
 		"yellow":        gowid.MakePaletteEntry(gowid.ColorYellow, gowid.ColorNone),
+		"magenta":       gowid.MakePaletteEntry(gowid.ColorMagenta, gowid.ColorNone),
 	}
 
 	cbsdJails = GetCbsdJails()
