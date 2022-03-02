@@ -16,6 +16,7 @@ import (
 	"github.com/gcla/gowid/widgets/button"
 	"github.com/gcla/gowid/widgets/cellmod"
 	"github.com/gcla/gowid/widgets/dialog"
+	"github.com/gcla/gowid/widgets/edit"
 	"github.com/gcla/gowid/widgets/fill"
 	"github.com/gcla/gowid/widgets/framed"
 	"github.com/gcla/gowid/widgets/grid"
@@ -45,7 +46,7 @@ type CbsdJail struct {
 	Parameters []PairString
 }
 
-var USE_DOAS = false
+var USE_DOAS = true
 
 var doasProgram = "/usr/local/bin/doas"
 var cbsdJlsDisplay = []string{"jname", "ip4_addr", "host_hostname", "status", "astart", "ver", "path", "interface", "baserw", "vnet"}
@@ -59,13 +60,19 @@ var pwProgram = "/usr/sbin/pw"
 var cbsdJails []*CbsdJail
 var cbsdJailHeader []gowid.IWidget
 var cbsdJailsLines [][]gowid.IWidget
+var cbsdJailsGrid []gowid.IWidget
+var cbsdListWalker *list.SimpleListWalker
 var cbsdJailConsole *terminal.Widget
 var cbsdJailConsoleActive string
+var WIDTH = 18
+var HPAD = 2
+var VPAD = 1
 
 //var cbsdActionsMenuText = []string{"Start/Stop", "Snapshot", "Clone", "Export", "Migrate", "Destroy", "Makeresolv", "Show Config"}
-var cbsdActionsMenuText = []string{"Start/Stop", "Snapshot", "Export"}
+var cbsdActionsMenuText = []string{"Start/Stop", "Snapshot", "Clone", "Export"}
 var cbsdActionsMenu map[string][]gowid.IWidget
 var cbsdActionsDialog *dialog.Widget
+var cbsdCloneJailDialog *dialog.Widget
 var cbsdListJails *list.Widget
 
 var app *gowid.App
@@ -120,6 +127,138 @@ func CreateActionsLogDialog(txtout *text.Widget) *dialog.Widget {
 		},
 	)
 	return actionlogdialog
+}
+
+func DoCloneJail(jname string, jnewjname string, jnewhname string, newip string) {
+	//log.Infof("Clone %s to %s (%s) IP %s", jname, jnewjname, jnewhname, newip)
+	// cbsd jclone old=jail1 new=jail1clone host_hostname=jail1clone.domain.local ip4_addr=DHCP checkstate=0
+	var command string
+	txtheader := "Cloning jail...\n"
+
+	args := make([]string, 0)
+	if USE_DOAS {
+		args = append(args, "cbsd")
+	}
+	args = append(args, "jclone")
+	args = append(args, "old="+jname)
+	args = append(args, "new="+jnewjname)
+	args = append(args, "host_hostname="+jnewhname)
+	args = append(args, "ip4_addr="+newip)
+	args = append(args, "checkstate=0")
+
+	if USE_DOAS {
+		command = doasProgram
+	} else {
+		command = cbsdProgram
+	}
+	ExecCommand(txtheader, command, args)
+	RefreshJailList()
+}
+
+func RefreshJailList() {
+	cbsdJails = GetCbsdJails()
+	cbsdJailsLines = MakeCbsdJailsLines()
+	cbsdActionsMenu = MakeCbsdActionsMenu()
+	cbsdJailsGrid = make([]gowid.IWidget, 0)
+	gheader := grid.New(cbsdJailHeader, WIDTH, HPAD, VPAD, gowid.HAlignMiddle{})
+	cbsdJailsGrid = append(cbsdJailsGrid, gheader)
+	for _, line := range cbsdJailsLines {
+		gline := grid.New(line, WIDTH, HPAD, VPAD, gowid.HAlignMiddle{},
+			grid.Options{
+				DownKeys: []vim.KeyPress{},
+				UpKeys:   []vim.KeyPress{},
+			})
+		cbsdJailsGrid = append(cbsdJailsGrid, gline)
+	}
+	cbsdListWalker = list.NewSimpleListWalker(cbsdJailsGrid)
+	cbsdListJails.SetWalker(cbsdListWalker, app)
+}
+
+func MakeCloneJailDialog(jname string) *dialog.Widget {
+	htxt := text.New("Clone jail "+jname, text.Options{Align: gowid.HAlignMiddle{}})
+	htxtst := styled.New(htxt, gowid.MakePaletteRef("yellow"))
+	ednewjname := edit.New(edit.Options{Caption: "New jail name: ", Text: jname + "clone"})
+	ednewjnamest := styled.New(ednewjname, gowid.MakePaletteRef("green"))
+	ednewhname := edit.New(edit.Options{Caption: "New host name: ", Text: jname})
+	ednewhnamest := styled.New(ednewhname, gowid.MakePaletteRef("green"))
+	ednewip := edit.New(edit.Options{Caption: "New IP address: ", Text: "DHCP"})
+	ednewipst := styled.New(ednewip, gowid.MakePaletteRef("green"))
+	edlines := pile.New([]gowid.IContainerWidget{
+		&gowid.ContainerWidget{htxtst, gowid.RenderFlow{}},
+		&gowid.ContainerWidget{ednewjnamest, gowid.RenderFlow{}},
+		&gowid.ContainerWidget{ednewhnamest, gowid.RenderFlow{}},
+		&gowid.ContainerWidget{ednewipst, gowid.RenderFlow{}},
+	})
+	Ok := dialog.Button{
+		Msg: "OK",
+		Action: gowid.MakeWidgetCallback("exec", gowid.WidgetChangedFunction(func(app gowid.IApp, w gowid.IWidget) {
+			cbsdCloneJailDialog.Close(app)
+			DoCloneJail(jname, ednewjname.Text(), ednewhname.Text(), ednewip.Text())
+		})),
+	}
+	Cancel := dialog.Button{
+		Msg: "Cancel",
+	}
+	clonejaildialog := dialog.New(
+		//edlines,
+		framed.NewSpace(
+			edlines,
+		),
+		dialog.Options{
+			Buttons:         []dialog.Button{Ok, Cancel},
+			NoShadow:        true,
+			BackgroundStyle: gowid.MakePaletteRef("bluebg"),
+			BorderStyle:     gowid.MakePaletteRef("dialog"),
+			ButtonStyle:     gowid.MakePaletteRef("white-focus"),
+			Modal:           true,
+			FocusOnWidget:   true,
+		},
+	)
+	return clonejaildialog
+	/*
+			msg := text.New("Do you want to quit?")
+			yesno = dialog.New(
+				framed.NewSpace(hpadding.New(msg, gowid.HAlignMiddle{}, gowid.RenderFixed{})),
+				dialog.Options{
+					Buttons: dialog.OkCancel,
+				},
+			)
+			yesno.Open(viewHolder, gowid.RenderWithRatio{R: 0.5}, app)
+
+
+		Yes := dialog.Button{
+			Msg: "Yes",
+			Action: gowid.MakeWidgetCallback("exec", gowid.WidgetChangedFunction(func(app gowid.IApp, w gowid.IWidget) {
+				termshark.ShouldSwitchTerminal = true
+				switchTerm.Close(app)
+				RequestQuit()
+			})),
+		}
+		No := dialog.Button{
+			Msg: "No",
+		}
+		NoAsk := dialog.Button{
+			Msg: "No, don't ask",
+			Action: gowid.MakeWidgetCallback("exec", gowid.WidgetChangedFunction(func(app gowid.IApp, w gowid.IWidget) {
+				termshark.SetConf("main.disable-term-helper", true)
+				switchTerm.Close(app)
+			})),
+		}
+		switchTerm = dialog.New(
+			framed.NewSpace(paragraph.New(fmt.Sprintf("Termshark is running with TERM=%s. The terminal database contains %s. Would you like to switch for a more colorful experience? Termshark will need to restart.", term, term256))),
+			dialog.Options{
+				Buttons:         []dialog.Button{Yes, No, NoAsk},
+				NoShadow:        true,
+				BackgroundStyle: gowid.MakePaletteRef("dialog"),
+				BorderStyle:     gowid.MakePaletteRef("dialog"),
+				ButtonStyle:     gowid.MakePaletteRef("dialog-button"),
+				Modal:           true,
+				FocusOnWidget:   false,
+			},
+		)
+		switchTerm.Open(appView, gowid.RenderWithRatio{R: 0.5}, app)
+
+	*/
 }
 
 func MakeCbsdActionsMenu() map[string][]gowid.IWidget {
@@ -192,6 +331,8 @@ func (jail *CbsdJail) SnapshotJail() {
 }
 
 func (jail *CbsdJail) CloneJail() {
+	cbsdCloneJailDialog = MakeCloneJailDialog(jail.Name)
+	cbsdCloneJailDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
 }
 
 func (jail *CbsdJail) ExportJail() {
@@ -571,50 +712,54 @@ func JailListButtonCallBack(jname string, key gowid.IKey) {
 		cbsdActionsDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
 	}
 }
+func (jail *CbsdJail) MakeGridLine() []gowid.IWidget {
+	style := "gray"
+	line := make([]gowid.IWidget, 0)
+	style = GetJailStyle(jail)
+	line = append(line, jail.GetMenuButton())
+	for _, param := range jail.Parameters {
+		if param.Key == "NAME" {
+			continue
+		}
+		if IsBlackListed(param.Key) {
+			continue
+		}
+		str := param.Value
+		if param.Key == "AUTOSTART" {
+			switch param.Value {
+			case "0":
+				str = "Off"
+			case "1":
+				str = "On"
+			}
+		}
+		if param.Key == "BASERW" {
+			switch param.Value {
+			case "0":
+				str = "Yes"
+			case "1":
+				str = "No"
+			}
+		}
+		if param.Key == "VNET" {
+			switch param.Value {
+			case "0":
+				str = "Yes"
+			case "1":
+				str = "No"
+			}
+		}
+		ptxt := text.New(str, text.Options{Align: gowid.HAlignMiddle{}})
+		ptxts := GetStyledWidget(ptxt, style)
+		line = append(line, ptxts)
+	}
+	return line
+}
 
 func MakeCbsdJailsLines() [][]gowid.IWidget {
 	lines := make([][]gowid.IWidget, 0)
-	style := "gray"
-	for _, j := range cbsdJails {
-		line := make([]gowid.IWidget, 0)
-		style = GetJailStyle(j)
-		line = append(line, j.GetMenuButton())
-		for _, param := range j.Parameters {
-			if param.Key == "NAME" {
-				continue
-			}
-			if IsBlackListed(param.Key) {
-				continue
-			}
-			str := param.Value
-			if param.Key == "AUTOSTART" {
-				switch param.Value {
-				case "0":
-					str = "Off"
-				case "1":
-					str = "On"
-				}
-			}
-			if param.Key == "BASERW" {
-				switch param.Value {
-				case "0":
-					str = "Yes"
-				case "1":
-					str = "No"
-				}
-			}
-			if param.Key == "VNET" {
-				switch param.Value {
-				case "0":
-					str = "Yes"
-				case "1":
-					str = "No"
-				}
-			}
-			ptxt := text.New(str, text.Options{Align: gowid.HAlignMiddle{}})
-			ptxts := GetStyledWidget(ptxt, style)
-			line = append(line, ptxts)
-		}
+	for _, jail := range cbsdJails {
+		line := (*jail).MakeGridLine()
 		lines = append(lines, line)
 	}
 	return lines
@@ -811,26 +956,24 @@ func main() {
 		"test1notfocus": gowid.MakePaletteEntry(gowid.ColorGreen, gowid.ColorBlack),
 		"test2focus":    gowid.MakePaletteEntry(gowid.ColorMagenta, gowid.ColorBlack),
 		"test2notfocus": gowid.MakePaletteEntry(gowid.ColorCyan, gowid.ColorBlack),
+		"yellow":        gowid.MakePaletteEntry(gowid.ColorYellow, gowid.ColorNone),
 	}
 
-	width := 18
-	hpad := 2
-	vpad := 1
 	cbsdJails = GetCbsdJails()
 	cbsdJailsLines = MakeCbsdJailsLines()
 	cbsdJailHeader = GetCbsdJlsHeader()
 	cbsdActionsMenu = MakeCbsdActionsMenu()
 
-	gjails := make([]gowid.IWidget, 0)
-	gheader := grid.New(cbsdJailHeader, width, hpad, vpad, gowid.HAlignMiddle{})
-	gjails = append(gjails, gheader)
+	cbsdJailsGrid = make([]gowid.IWidget, 0)
+	gheader := grid.New(cbsdJailHeader, WIDTH, HPAD, VPAD, gowid.HAlignMiddle{})
+	cbsdJailsGrid = append(cbsdJailsGrid, gheader)
 	for _, line := range cbsdJailsLines {
-		gline := grid.New(line, width, hpad, vpad, gowid.HAlignMiddle{},
+		gline := grid.New(line, WIDTH, HPAD, VPAD, gowid.HAlignMiddle{},
 			grid.Options{
 				DownKeys: []vim.KeyPress{},
 				UpKeys:   []vim.KeyPress{},
 			})
-		gjails = append(gjails, gline)
+		cbsdJailsGrid = append(cbsdJailsGrid, gline)
 	}
 
 	cbsdJailConsole, err = terminal.NewExt(terminal.Options{
@@ -842,7 +985,8 @@ func main() {
 		panic(err)
 	}
 
-	cbsdListJails = list.New(list.NewSimpleListWalker(gjails))
+	cbsdListWalker = list.NewSimpleListWalker(cbsdJailsGrid)
+	cbsdListJails = list.New(cbsdListWalker)
 	pw1 := vpadding.New(cbsdListJails, gowid.VAlignTop{}, gowid.RenderFlow{})
 	hline := styled.New(fill.New('⎯'), gowid.MakePaletteRef("line"))
 
