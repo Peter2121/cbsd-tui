@@ -73,6 +73,7 @@ var cbsdActionsMenuText = []string{"Start/Stop", "Snapshot", "Clone", "Export"}
 var cbsdActionsMenu map[string][]gowid.IWidget
 var cbsdActionsDialog *dialog.Widget
 var cbsdCloneJailDialog *dialog.Widget
+var cbsdSnapshotJailDialog *dialog.Widget
 var cbsdListJails *list.Widget
 
 var app *gowid.App
@@ -129,49 +130,41 @@ func CreateActionsLogDialog(txtout *text.Widget) *dialog.Widget {
 	return actionlogdialog
 }
 
-func DoCloneJail(jname string, jnewjname string, jnewhname string, newip string) {
-	//log.Infof("Clone %s to %s (%s) IP %s", jname, jnewjname, jnewhname, newip)
-	// cbsd jclone old=jail1 new=jail1clone host_hostname=jail1clone.domain.local ip4_addr=DHCP checkstate=0
-	var command string
-	txtheader := "Cloning jail...\n"
-
-	args := make([]string, 0)
-	if USE_DOAS {
-		args = append(args, "cbsd")
+func MakeSnapshotJailDialog(jname string) *dialog.Widget {
+	htxt := text.New("Snapshot jail "+jname, text.Options{Align: gowid.HAlignMiddle{}})
+	htxtst := styled.New(htxt, gowid.MakePaletteRef("yellow"))
+	edsnapname := edit.New(edit.Options{Caption: "Snapshot name: ", Text: "gettimeofday"})
+	edsnapnamest := styled.New(edsnapname, gowid.MakePaletteRef("green"))
+	edlines := pile.New([]gowid.IContainerWidget{
+		&gowid.ContainerWidget{htxtst, gowid.RenderFlow{}},
+		&gowid.ContainerWidget{edsnapnamest, gowid.RenderFlow{}},
+	})
+	Ok := dialog.Button{
+		Msg: "OK",
+		Action: gowid.MakeWidgetCallback("execsnapjail", gowid.WidgetChangedFunction(func(app gowid.IApp, w gowid.IWidget) {
+			cbsdSnapshotJailDialog.Close(app)
+			DoSnapshotJail(jname, edsnapname.Text())
+		})),
 	}
-	args = append(args, "jclone")
-	args = append(args, "old="+jname)
-	args = append(args, "new="+jnewjname)
-	args = append(args, "host_hostname="+jnewhname)
-	args = append(args, "ip4_addr="+newip)
-	args = append(args, "checkstate=0")
-
-	if USE_DOAS {
-		command = doasProgram
-	} else {
-		command = cbsdProgram
+	Cancel := dialog.Button{
+		Msg: "Cancel",
 	}
-	ExecCommand(txtheader, command, args)
-	RefreshJailList()
-}
-
-func RefreshJailList() {
-	cbsdJails = GetCbsdJails()
-	cbsdJailsLines = MakeCbsdJailsLines()
-	cbsdActionsMenu = MakeCbsdActionsMenu()
-	cbsdJailsGrid = make([]gowid.IWidget, 0)
-	gheader := grid.New(cbsdJailHeader, WIDTH, HPAD, VPAD, gowid.HAlignMiddle{})
-	cbsdJailsGrid = append(cbsdJailsGrid, gheader)
-	for _, line := range cbsdJailsLines {
-		gline := grid.New(line, WIDTH, HPAD, VPAD, gowid.HAlignMiddle{},
-			grid.Options{
-				DownKeys: []vim.KeyPress{},
-				UpKeys:   []vim.KeyPress{},
-			})
-		cbsdJailsGrid = append(cbsdJailsGrid, gline)
-	}
-	cbsdListWalker = list.NewSimpleListWalker(cbsdJailsGrid)
-	cbsdListJails.SetWalker(cbsdListWalker, app)
+	snapjaildialog := dialog.New(
+		//edlines,
+		framed.NewSpace(
+			edlines,
+		),
+		dialog.Options{
+			Buttons:         []dialog.Button{Ok, Cancel},
+			NoShadow:        true,
+			BackgroundStyle: gowid.MakePaletteRef("bluebg"),
+			BorderStyle:     gowid.MakePaletteRef("dialog"),
+			ButtonStyle:     gowid.MakePaletteRef("white-focus"),
+			Modal:           true,
+			FocusOnWidget:   true,
+		},
+	)
+	return snapjaildialog
 }
 
 func MakeCloneJailDialog(jname string) *dialog.Widget {
@@ -191,7 +184,7 @@ func MakeCloneJailDialog(jname string) *dialog.Widget {
 	})
 	Ok := dialog.Button{
 		Msg: "OK",
-		Action: gowid.MakeWidgetCallback("exec", gowid.WidgetChangedFunction(func(app gowid.IApp, w gowid.IWidget) {
+		Action: gowid.MakeWidgetCallback("execclonejail", gowid.WidgetChangedFunction(func(app gowid.IApp, w gowid.IWidget) {
 			cbsdCloneJailDialog.Close(app)
 			DoCloneJail(jname, ednewjname.Text(), ednewhname.Text(), ednewip.Text())
 		})),
@@ -308,19 +301,42 @@ func RunActionOnJail(action string, jname string) {
 	}
 }
 
-func (jail *CbsdJail) SnapshotJail() {
+func DoSnapshotJail(jname string, snapname string) {
 	// cbsd jsnapshot mode=create snapname=gettimeofday jname=nim1
 	var command string
 	txtheader := "Creating jail snapshot...\n"
-
 	args := make([]string, 0)
 	if USE_DOAS {
 		args = append(args, "cbsd")
 	}
 	args = append(args, "jsnapshot")
 	args = append(args, "mode=create")
-	args = append(args, "snapname=gettimeofday")
-	args = append(args, "jname="+jail.Name)
+	args = append(args, "snapname="+snapname)
+	args = append(args, "jname="+jname)
+	if USE_DOAS {
+		command = doasProgram
+	} else {
+		command = cbsdProgram
+	}
+	ExecCommand(txtheader, command, args)
+}
+
+func DoCloneJail(jname string, jnewjname string, jnewhname string, newip string) {
+	//log.Infof("Clone %s to %s (%s) IP %s", jname, jnewjname, jnewhname, newip)
+	// cbsd jclone old=jail1 new=jail1clone host_hostname=jail1clone.domain.local ip4_addr=DHCP checkstate=0
+	var command string
+	txtheader := "Cloning jail...\n"
+
+	args := make([]string, 0)
+	if USE_DOAS {
+		args = append(args, "cbsd")
+	}
+	args = append(args, "jclone")
+	args = append(args, "old="+jname)
+	args = append(args, "new="+jnewjname)
+	args = append(args, "host_hostname="+jnewhname)
+	args = append(args, "ip4_addr="+newip)
+	args = append(args, "checkstate=0")
 
 	if USE_DOAS {
 		command = doasProgram
@@ -328,6 +344,31 @@ func (jail *CbsdJail) SnapshotJail() {
 		command = cbsdProgram
 	}
 	ExecCommand(txtheader, command, args)
+	RefreshJailList()
+}
+
+func RefreshJailList() {
+	cbsdJails = GetCbsdJails()
+	cbsdJailsLines = MakeCbsdJailsLines()
+	cbsdActionsMenu = MakeCbsdActionsMenu()
+	cbsdJailsGrid = make([]gowid.IWidget, 0)
+	gheader := grid.New(cbsdJailHeader, WIDTH, HPAD, VPAD, gowid.HAlignMiddle{})
+	cbsdJailsGrid = append(cbsdJailsGrid, gheader)
+	for _, line := range cbsdJailsLines {
+		gline := grid.New(line, WIDTH, HPAD, VPAD, gowid.HAlignMiddle{},
+			grid.Options{
+				DownKeys: []vim.KeyPress{},
+				UpKeys:   []vim.KeyPress{},
+			})
+		cbsdJailsGrid = append(cbsdJailsGrid, gline)
+	}
+	cbsdListWalker = list.NewSimpleListWalker(cbsdJailsGrid)
+	cbsdListJails.SetWalker(cbsdListWalker, app)
+}
+
+func (jail *CbsdJail) SnapshotJail() {
+	cbsdSnapshotJailDialog = MakeSnapshotJailDialog(jail.Name)
+	cbsdSnapshotJailDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
 }
 
 func (jail *CbsdJail) CloneJail() {
