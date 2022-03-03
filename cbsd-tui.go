@@ -538,6 +538,7 @@ func (jail CbsdJail) GetMenuButton() *keypress.Widget {
 			Keys: []gowid.IKey{
 				gowid.MakeKeyExt(tcell.KeyEnter),
 				gowid.MakeKeyExt(tcell.KeyF2),
+				gowid.MakeKeyExt(tcell.KeyTab),
 			},
 		},
 	)
@@ -767,6 +768,10 @@ func JailListButtonCallBack(jname string, key gowid.IKey) {
 		}
 		cbsdActionsDialog = CreateCbsdJailActionsDialog(jname)
 		cbsdActionsDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
+	case tcell.KeyTab:
+		if next, ok := cbsdWidgets.FindNextSelectable(gowid.Forwards, true); ok {
+			cbsdWidgets.SetFocus(app, next)
+		}
 	}
 }
 func (jail *CbsdJail) MakeGridLine() []gowid.IWidget {
@@ -941,6 +946,10 @@ func (h handler) UnhandledInput(app gowid.IApp, ev interface{}) bool {
 		//log.Infof(string(evk.Key()))
 		if evk.Key() == tcell.KeyCtrlC || evk.Key() == tcell.KeyEsc || evk.Rune() == 'q' || evk.Rune() == 'Q' {
 			app.Quit()
+		} else if evk.Key() == tcell.KeyTab {
+			if next, ok := cbsdWidgets.FindNextSelectable(gowid.Forwards, true); ok {
+				cbsdWidgets.SetFocus(app, next)
+			}
 		} else {
 			handled = false
 		}
@@ -1036,6 +1045,7 @@ func main() {
 
 	cbsdJailConsole, err = terminal.NewExt(terminal.Options{
 		Command:           strings.Split(os.Getenv("SHELL"), " "),
+		HotKey:            terminal.HotKey{tcell.KeyCtrlZ},
 		HotKeyPersistence: &terminal.HotKeyDuration{time.Second * 2},
 		Scrollback:        1000,
 	})
