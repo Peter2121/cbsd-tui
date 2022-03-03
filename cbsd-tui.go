@@ -46,7 +46,7 @@ type CbsdJail struct {
 	Parameters []PairString
 }
 
-var USE_DOAS = false
+var USE_DOAS = true
 
 var doasProgram = "/usr/local/bin/doas"
 var cbsdJlsDisplay = []string{"jname", "ip4_addr", "host_hostname", "status", "astart", "ver", "path", "interface", "baserw", "vnet"}
@@ -63,6 +63,7 @@ var cbsdJailsLines [][]gowid.IWidget
 var cbsdJailsGrid []gowid.IWidget
 var cbsdListWalker *list.SimpleListWalker
 var cbsdJailConsole *terminal.Widget
+var cbsdWidgets *ResizeablePileWidget
 var cbsdJailConsoleActive string
 var WIDTH = 18
 var HPAD = 2
@@ -644,15 +645,26 @@ func LoginToJail(jname string) {
 	}
 	if jail != nil {
 		if cbsdJailConsoleActive != "" {
+			SendTerminalCommand("\x03")
 			SendTerminalCommand("exit")
 		}
-		SendTerminalCommand(cbsdProgram + " " + cbsdCommandJailLogin + " " + cbsdArgJailName + "=" + jname)
+		if USE_DOAS {
+			SendTerminalCommand(doasProgram + " " + "cbsd" + " " + cbsdCommandJailLogin + " " + cbsdArgJailName + "=" + jname)
+		} else {
+			SendTerminalCommand(cbsdProgram + " " + cbsdCommandJailLogin + " " + cbsdArgJailName + "=" + jname)
+		}
 		cbsdJailConsoleActive = jname
+		if cbsdWidgets.Focus() == 0 { // TODO: check current focus more carefully
+			if next, ok := cbsdWidgets.FindNextSelectable(gowid.Forwards, true); ok {
+				cbsdWidgets.SetFocus(app, next)
+			}
+		}
 	}
 }
 
 func SendTerminalCommand(cmd string) {
 	cbsdJailConsole.Write([]byte(cmd + "\n"))
+	time.Sleep(200 * time.Millisecond)
 }
 
 func NewCbsdJail() *CbsdJail {
@@ -1036,12 +1048,12 @@ func main() {
 	pw1 := vpadding.New(cbsdListJails, gowid.VAlignTop{}, gowid.RenderFlow{})
 	hline := styled.New(fill.New('⎯'), gowid.MakePaletteRef("line"))
 
-	pilew := NewResizeablePile([]gowid.IContainerWidget{
+	cbsdWidgets = NewResizeablePile([]gowid.IContainerWidget{
 		&gowid.ContainerWidget{pw1, gowid.RenderWithWeight{1}},
 		&gowid.ContainerWidget{hline, gowid.RenderWithUnits{U: 1}},
 		&gowid.ContainerWidget{cbsdJailConsole, gowid.RenderWithWeight{1}},
 	})
-	viewHolder = holder.New(pilew)
+	viewHolder = holder.New(cbsdWidgets)
 
 	app, err = gowid.NewApp(gowid.AppArgs{
 		View:    viewHolder,
