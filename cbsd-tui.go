@@ -69,8 +69,8 @@ var WIDTH = 18
 var HPAD = 2
 var VPAD = 1
 
-//var cbsdActionsMenuText = []string{"Start/Stop", "Snapshot", "Clone", "Export", "Migrate", "Destroy", "Makeresolv", "Show Config"}
-var cbsdActionsMenuText = []string{"Start/Stop", "Snapshot", "Clone", "Export"}
+//var cbsdActionsMenuText = []string{"Start/Stop", "Create Snapshot", "List Snapshots", "Clone", "Export", "Migrate", "Destroy", "Makeresolv", "Show Config"}
+var cbsdActionsMenuText = []string{"Start/Stop", "Create Snapshot", "List Snapshots", "Clone", "Export"}
 var cbsdActionsMenu map[string][]gowid.IWidget
 var cbsdActionsDialog *dialog.Widget
 var cbsdCloneJailDialog *dialog.Widget
@@ -293,8 +293,10 @@ func RunActionOnJail(action string, jname string) {
 		jail.StartStopJail()
 	case "Stop":
 		jail.StartStopJail()
-	case "Snapshot":
+	case "Create Snapshot":
 		jail.SnapshotJail()
+	case "List Snapshots":
+		jail.ListSnapshotsJail()
 	case "Clone":
 		jail.CloneJail()
 	case "Export":
@@ -370,6 +372,25 @@ func RefreshJailList() {
 func (jail *CbsdJail) SnapshotJail() {
 	cbsdSnapshotJailDialog = MakeSnapshotJailDialog(jail.Name)
 	cbsdSnapshotJailDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
+}
+
+func (jail *CbsdJail) ListSnapshotsJail() {
+	// cbsd jsnapshot mode=list jname=nim1
+	var command string
+	txtheader := "List jail snapshots...\n"
+	args := make([]string, 0)
+	if USE_DOAS {
+		args = append(args, "cbsd")
+	}
+	args = append(args, "jsnapshot")
+	args = append(args, "mode=list")
+	args = append(args, "jname="+jail.Name)
+	if USE_DOAS {
+		command = doasProgram
+	} else {
+		command = cbsdProgram
+	}
+	ExecCommand(txtheader, command, args)
 }
 
 func (jail *CbsdJail) CloneJail() {
@@ -618,8 +639,10 @@ func (jail *CbsdJail) StartStopJail() {
 	} else {
 		command = cbsdProgram
 	}
-	ExecCommand(txtheader, command, args)
-	jail.UpdateJailStatus()
+	if (!jail.IsRunning && jail.IsRunnable) || jail.IsRunning {
+		ExecCommand(txtheader, command, args)
+		jail.UpdateJailStatus()
+	}
 }
 
 func GetJailByName(jname string) *CbsdJail {
@@ -758,13 +781,18 @@ func JailListButtonCallBack(jname string, key gowid.IKey) {
 	case tcell.KeyEnter:
 		LoginToJail(jname)
 	case tcell.KeyF2:
-		txt := cbsdActionsMenu[jname][0].(*button.Widget).SubWidget().(*styled.Widget).SubWidget().(*text.Widget)
+		btn := cbsdActionsMenu[jname][0].(*button.Widget)
+		txt := btn.SubWidget().(*styled.Widget).SubWidget().(*text.Widget)
 		wr := text.Writer{txt, app}
 		jail := GetJailByName(jname)
 		if jail.IsRunning {
 			wr.Write([]byte("Stop"))
 		} else {
-			wr.Write([]byte("Start"))
+			if jail.IsRunnable {
+				wr.Write([]byte("Start"))
+			} else {
+				wr.Write([]byte("--Not Runnable--"))
+			}
 		}
 		cbsdActionsDialog = CreateCbsdJailActionsDialog(jname)
 		cbsdActionsDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
