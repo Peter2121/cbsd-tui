@@ -77,6 +77,7 @@ var cbsdCloneJailDialog *dialog.Widget
 var cbsdSnapshotJailDialog *dialog.Widget
 var cbsdListJails *list.Widget
 
+
 var app *gowid.App
 var menu2 *menu.Widget
 var viewHolder *holder.Widget
