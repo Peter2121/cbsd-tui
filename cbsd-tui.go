@@ -15,6 +15,7 @@ import (
 	"github.com/gcla/gowid/vim"
 	"github.com/gcla/gowid/widgets/button"
 	"github.com/gcla/gowid/widgets/cellmod"
+	"github.com/gcla/gowid/widgets/columns"
 	"github.com/gcla/gowid/widgets/dialog"
 	"github.com/gcla/gowid/widgets/edit"
 	"github.com/gcla/gowid/widgets/fill"
@@ -61,6 +62,7 @@ var cbsdJails []*CbsdJail
 var cbsdJailHeader []gowid.IWidget
 var cbsdJailsLines [][]gowid.IWidget
 var cbsdJailsGrid []gowid.IWidget
+var cbsdBottomMenu []gowid.IContainerWidget
 var cbsdListWalker *list.SimpleListWalker
 var cbsdJailConsole *terminal.Widget
 var cbsdWidgets *ResizeablePileWidget
@@ -76,7 +78,6 @@ var cbsdActionsDialog *dialog.Widget
 var cbsdCloneJailDialog *dialog.Widget
 var cbsdSnapshotJailDialog *dialog.Widget
 var cbsdListJails *list.Widget
-
 
 var app *gowid.App
 var menu2 *menu.Widget
@@ -1026,6 +1027,21 @@ func GetStyledWidget(w gowid.IWidget, color string) *styled.Widget {
 		[]styled.AttributeRange{styled.AttributeRange{0, -1, gowid.MakePaletteRef(cfocus)}})
 }
 
+func MakeBottomMenu() {
+	cbsdBottomMenu = make([]gowid.IContainerWidget, 0)
+	for _, m := range cbsdActionsMenuText {
+		mtext := text.New(m, text.Options{Align: gowid.HAlignLeft{}})
+		mbtn := button.New(mtext, button.Options{Decoration: button.BareDecoration})
+		mbtns := GetStyledWidget(mbtn, "red")
+		mbtn.OnClick(gowid.WidgetCallback{"cbb_" + mtext.Content().String(), func(app gowid.IApp, w gowid.IWidget) {
+			app.Run(gowid.RunFunction(func(app gowid.IApp) {
+				RunActionOnJail(mtext.Content().String(), "nojail")
+			}))
+		}})
+		cbsdBottomMenu = append(cbsdBottomMenu, &gowid.ContainerWidget{IWidget: mbtns, D: gowid.RenderFixed{}})
+	}
+}
+
 func main() {
 	var err error
 
@@ -1084,11 +1100,36 @@ func main() {
 
 	cbsdListWalker = list.NewSimpleListWalker(cbsdJailsGrid)
 	cbsdListJails = list.New(cbsdListWalker)
-	pw1 := vpadding.New(cbsdListJails, gowid.VAlignTop{}, gowid.RenderFlow{})
+	listjails := vpadding.New(cbsdListJails, gowid.VAlignTop{}, gowid.RenderFlow{})
+	//hlptxt := text.New("Press \"Esc\" to exit", text.Options{Align: gowid.HAlignLeft{}})
+	//hlptxtst := styled.New(hlptxt, gowid.MakePaletteRef("magenta"))
+
+	/*
+		clickToOpenWidgets := make([]gowid.IContainerWidget, 0)
+		for i := 0; i < 20; i++ {
+			btn := button.New(text.New(fmt.Sprintf("clickety%d", i)))
+			btnStyled := styled.NewExt(btn, gowid.MakePaletteRef("red"), gowid.MakePaletteRef("white"))
+			btnSite := menu.NewSite(menu.SiteOptions{YOffset: 1})
+			btn.OnClick(gowid.WidgetCallback{gowid.ClickCB{}, func(app gowid.IApp, target gowid.IWidget) {
+				menu1.Open(btnSite, app)
+			}})
+			clickToOpenWidgets = append(clickToOpenWidgets, &gowid.ContainerWidget{IWidget: btnSite, D: fixed})
+			clickToOpenWidgets = append(clickToOpenWidgets, &gowid.ContainerWidget{IWidget: btnStyled, D: fixed})
+		}
+		clickToOpenCols := columns.New(clickToOpenWidgets)
+	*/
+
+	MakeBottomMenu()
+	gbmenu := columns.New(cbsdBottomMenu, columns.Options{DoNotSetSelected: true, LeftKeys: make([]vim.KeyPress, 0), RightKeys: make([]vim.KeyPress, 0)})
+
+	toppanel := NewResizeablePile([]gowid.IContainerWidget{
+		&gowid.ContainerWidget{listjails, gowid.RenderWithWeight{1}},
+		&gowid.ContainerWidget{gbmenu, gowid.RenderWithUnits{U: 1}},
+	})
 	hline := styled.New(fill.New('⎯'), gowid.MakePaletteRef("line"))
 
 	cbsdWidgets = NewResizeablePile([]gowid.IContainerWidget{
-		&gowid.ContainerWidget{pw1, gowid.RenderWithWeight{1}},
+		&gowid.ContainerWidget{toppanel, gowid.RenderWithWeight{1}},
 		&gowid.ContainerWidget{hline, gowid.RenderWithUnits{U: 1}},
 		&gowid.ContainerWidget{cbsdJailConsole, gowid.RenderWithWeight{1}},
 	})
