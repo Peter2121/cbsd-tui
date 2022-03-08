@@ -73,6 +73,7 @@ var VPAD = 1
 
 //var cbsdActionsMenuText = []string{"Start/Stop", "Create Snapshot", "List Snapshots", "Clone", "Export", "Migrate", "Destroy", "Makeresolv", "Show Config"}
 var cbsdActionsMenuText = []string{"Start/Stop", "Create Snapshot", "List Snapshots", "Clone", "Export"}
+var cbsdBottomMenuText = []string{"[F1]Help ", "[F2]Actions Menu ", "[F5]Clone ", "[F6]Export ", "[F7]Create Snapshot ", "[F10]Exit ", "[F11]List Snapshots ", "[F12]Start/Stop"}
 var cbsdActionsMenu map[string][]gowid.IWidget
 var cbsdActionsDialog *dialog.Widget
 var cbsdCloneJailDialog *dialog.Widget
@@ -304,6 +305,43 @@ func RunActionOnJail(action string, jname string) {
 	case "Export":
 		jail.ExportJail()
 	}
+}
+
+func RunMenuAction(action string) {
+	log.Infof("Menu Action: " + action)
+	jname := GetSelectedJailName()
+	log.Infof("JailName: " + jname)
+	jail := GetJailByName(jname)
+	if jail == nil {
+		log.Errorf("Cannot find jail: " + jname)
+		return
+	}
+	switch action {
+	// "[F1]Help ",            "[F2]Actions Menu ", "[F5]Clone ",           "[F6]Export ",
+	// "[F7]Create Snapshot ", "[F10]Exit ",        "[F11]List Snapshots ", "[F12]Start/Stop"
+	case cbsdBottomMenuText[0]: // Help
+	case cbsdBottomMenuText[1]: // Actions Menu
+		OpenJailActionsMenu(jname)
+	case cbsdBottomMenuText[2]: // Clone
+		jail.CloneJail()
+	case cbsdBottomMenuText[3]: // Export
+		jail.ExportJail()
+	case cbsdBottomMenuText[4]: // Create Snapshot
+		jail.SnapshotJail()
+	case cbsdBottomMenuText[5]: // Exit
+		app.Close()
+	case cbsdBottomMenuText[6]: // List Snapshots
+		jail.ListSnapshotsJail()
+	case cbsdBottomMenuText[7]: // Start/Stop
+		jail.StartStopJail()
+	}
+}
+
+func GetSelectedJailName() string {
+	//cbsdListJails.Walker().SetFocus(newpos, app)
+	ifocus := cbsdListJails.Walker().Focus()
+	jname := cbsdJails[int(ifocus.(list.ListPos))-1].Name
+	return jname
 }
 
 func DoSnapshotJail(jname string, snapname string) {
@@ -575,7 +613,11 @@ func ExecCommand(title string, command string, args []string) {
 	var cmd *exec.Cmd
 	txtout := text.New(title, text.Options{Align: gowid.HAlignLeft{}})
 	outdlg := CreateActionsLogDialog(txtout)
-	cbsdActionsDialog.Close(app)
+	if cbsdActionsDialog != nil {
+		if cbsdActionsDialog.IsOpen() {
+			cbsdActionsDialog.Close(app)
+		}
+	}
 	outdlg.Open(viewHolder, gowid.RenderWithRatio{R: 0.7}, app)
 	outdlgwriter := text.Writer{txtout, app}
 	cmd = exec.Command(command, args...)
@@ -778,26 +820,30 @@ func SetJailListFocus() {
 	cbsdListJails.Walker().SetFocus(newpos, app)
 }
 
+func OpenJailActionsMenu(jname string) {
+	btn := cbsdActionsMenu[jname][0].(*button.Widget)
+	txt := btn.SubWidget().(*styled.Widget).SubWidget().(*text.Widget)
+	wr := text.Writer{txt, app}
+	jail := GetJailByName(jname)
+	if jail.IsRunning {
+		wr.Write([]byte("Stop"))
+	} else {
+		if jail.IsRunnable {
+			wr.Write([]byte("Start"))
+		} else {
+			wr.Write([]byte("--Not Runnable--"))
+		}
+	}
+	cbsdActionsDialog = CreateCbsdJailActionsDialog(jname)
+	cbsdActionsDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
+}
+
 func JailListButtonCallBack(jname string, key gowid.IKey) {
 	switch key.Key() {
 	case tcell.KeyEnter:
 		LoginToJail(jname)
 	case tcell.KeyF2:
-		btn := cbsdActionsMenu[jname][0].(*button.Widget)
-		txt := btn.SubWidget().(*styled.Widget).SubWidget().(*text.Widget)
-		wr := text.Writer{txt, app}
-		jail := GetJailByName(jname)
-		if jail.IsRunning {
-			wr.Write([]byte("Stop"))
-		} else {
-			if jail.IsRunnable {
-				wr.Write([]byte("Start"))
-			} else {
-				wr.Write([]byte("--Not Runnable--"))
-			}
-		}
-		cbsdActionsDialog = CreateCbsdJailActionsDialog(jname)
-		cbsdActionsDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
+		OpenJailActionsMenu(jname)
 	case tcell.KeyTab:
 		if next, ok := cbsdWidgets.FindNextSelectable(gowid.Forwards, true); ok {
 			cbsdWidgets.SetFocus(app, next)
@@ -974,36 +1020,41 @@ func (h handler) UnhandledInput(app gowid.IApp, ev interface{}) bool {
 	if ok {
 		handled = true
 		//log.Infof(string(evk.Key()))
-		if evk.Key() == tcell.KeyCtrlC || evk.Key() == tcell.KeyEsc || evk.Rune() == 'q' || evk.Rune() == 'Q' {
+		/*
+			if evk.Key() == tcell.KeyCtrlC || evk.Key() == tcell.KeyEsc || evk.Key() == tcell.KeyF10 {
+				app.Quit()
+			} else if evk.Key() == tcell.KeyTab {
+				if next, ok := cbsdWidgets.FindNextSelectable(gowid.Forwards, true); ok {
+					cbsdWidgets.SetFocus(app, next)
+				}
+			} else {
+				handled = false
+			}
+		*/
+		// "[F1]Help ",            "[F2]Actions Menu ", "[F5]Clone ",           "[F6]Export ",
+		// "[F7]Create Snapshot ", "[F10]Exit ",        "[F11]List Snapshots ", "[F12]Start/Stop"
+		switch evk.Key() {
+		case tcell.KeyCtrlC, tcell.KeyEsc, tcell.KeyF10:
 			app.Quit()
-		} else if evk.Key() == tcell.KeyTab {
+		case tcell.KeyTab:
 			if next, ok := cbsdWidgets.FindNextSelectable(gowid.Forwards, true); ok {
 				cbsdWidgets.SetFocus(app, next)
 			}
-		} else {
+		case tcell.KeyF2:
+			RunMenuAction(cbsdBottomMenuText[1])
+		case tcell.KeyF5:
+			RunMenuAction(cbsdBottomMenuText[2])
+		case tcell.KeyF6:
+			RunMenuAction(cbsdBottomMenuText[3])
+		case tcell.KeyF7:
+			RunMenuAction(cbsdBottomMenuText[4])
+		case tcell.KeyF11:
+			RunMenuAction(cbsdBottomMenuText[6])
+		case tcell.KeyF12:
+			RunMenuAction(cbsdBottomMenuText[7])
+		default:
 			handled = false
 		}
-		/*
-			else if evk.Key() == tcell.KeyF12 {
-				log.Infof("KeyF12")
-				SetJailListFocus()
-			} else if evk.Key() == tcell.KeyDown {
-					log.Infof("KeyDown")
-				} else if evk.Key() == tcell.KeyEnter {
-					log.Infof("KeyEnter")
-				}
-
-						else if evk.Key() == tcell.KeyEsc {
-							if !menu1.IsOpen() {
-								app.Quit()
-							} else {
-								menu1.Close(app)
-							}
-						}
-					else {
-						handled = false
-					}
-		*/
 	}
 	return handled
 }
@@ -1029,13 +1080,13 @@ func GetStyledWidget(w gowid.IWidget, color string) *styled.Widget {
 
 func MakeBottomMenu() {
 	cbsdBottomMenu = make([]gowid.IContainerWidget, 0)
-	for _, m := range cbsdActionsMenuText {
+	for _, m := range cbsdBottomMenuText {
 		mtext := text.New(m, text.Options{Align: gowid.HAlignLeft{}})
 		mbtn := button.New(mtext, button.Options{Decoration: button.BareDecoration})
 		mbtns := GetStyledWidget(mbtn, "red")
 		mbtn.OnClick(gowid.WidgetCallback{"cbb_" + mtext.Content().String(), func(app gowid.IApp, w gowid.IWidget) {
 			app.Run(gowid.RunFunction(func(app gowid.IApp) {
-				RunActionOnJail(mtext.Content().String(), "nojail")
+				RunMenuAction(mtext.Content().String())
 			}))
 		}})
 		cbsdBottomMenu = append(cbsdBottomMenu, &gowid.ContainerWidget{IWidget: mbtns, D: gowid.RenderFixed{}})
