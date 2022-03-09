@@ -49,6 +49,14 @@ type CbsdJail struct {
 
 var USE_DOAS = true
 
+var txtProgramName = "CBSD-TUI"
+var txtHelp = `- To navigate in jails list use 'Up' and 'Down' keys or mouse
+- To open 'Actions' menu for the selected jail use 'F2' key
+- To login into the selected jail (as root) use 'Enter' key
+- To switch to terminal from jails list use 'Tab' key
+- To switch to jails list from terminal use 'Ctrl-Z'+'Tab' keys sequence
+- Use bottom menu ('Fx' keys or mouse clicks) to start actions on the selected jail`
+
 var doasProgram = "/usr/local/bin/doas"
 var cbsdJlsDisplay = []string{"jname", "ip4_addr", "host_hostname", "status", "astart", "ver", "path", "interface", "baserw", "vnet"}
 var cbsdProgram = "/usr/local/bin/cbsd"
@@ -105,6 +113,40 @@ func CreateCbsdJailActionsDialog(jname string) *dialog.Widget {
 		},
 	)
 	return actiondialog
+}
+
+func CreateHelpDialog() *dialog.Widget {
+	txthead := text.New(txtProgramName, text.Options{Align: gowid.HAlignMiddle{}})
+	txtheadst := styled.New(txthead, gowid.MakePaletteRef("magenta"))
+	txthelp := text.New(txtHelp, text.Options{Align: gowid.HAlignLeft{}})
+	txthelpst := styled.New(txthelp, gowid.MakePaletteRef("white"))
+	/*
+		sb := vscroll.NewExt(vscroll.VerticalScrollbarUnicodeRunes)
+		col := columns.New([]gowid.IContainerWidget{
+			&gowid.ContainerWidget{txtoutst, gowid.RenderWithWeight{W: 1}},
+			&gowid.ContainerWidget{sb, gowid.RenderWithUnits{U: 1}},
+		})
+	*/
+	helplines := pile.New([]gowid.IContainerWidget{
+		&gowid.ContainerWidget{txtheadst, gowid.RenderFlow{}},
+		&gowid.ContainerWidget{txthelpst, gowid.RenderFlow{}},
+	})
+	helpdialog := dialog.New(
+		framed.NewSpace(
+			helplines,
+		),
+		dialog.Options{
+			Buttons:         []dialog.Button{dialog.CloseD},
+			Modal:           true,
+			NoShadow:        true,
+			TabToButtons:    true,
+			BackgroundStyle: gowid.MakePaletteRef("bluebg"),
+			BorderStyle:     gowid.MakePaletteRef("dialog"),
+			ButtonStyle:     gowid.MakePaletteRef("white-focus"),
+			FocusOnWidget:   true,
+		},
+	)
+	return helpdialog
 }
 
 func CreateActionsLogDialog(txtout *text.Widget) *dialog.Widget {
@@ -320,6 +362,8 @@ func RunMenuAction(action string) {
 	// "[F1]Help ",            "[F2]Actions Menu ", "[F5]Clone ",           "[F6]Export ",
 	// "[F7]Create Snapshot ", "[F10]Exit ",        "[F11]List Snapshots ", "[F12]Start/Stop"
 	case cbsdBottomMenuText[0]: // Help
+		helpdialog := CreateHelpDialog()
+		helpdialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.6}, app)
 	case cbsdBottomMenuText[1]: // Actions Menu
 		OpenJailActionsMenu(jname)
 	case cbsdBottomMenuText[2]: // Clone
@@ -1040,6 +1084,8 @@ func (h handler) UnhandledInput(app gowid.IApp, ev interface{}) bool {
 			if next, ok := cbsdWidgets.FindNextSelectable(gowid.Forwards, true); ok {
 				cbsdWidgets.SetFocus(app, next)
 			}
+		case tcell.KeyF1:
+			RunMenuAction(cbsdBottomMenuText[0])
 		case tcell.KeyF2:
 			RunMenuAction(cbsdBottomMenuText[1])
 		case tcell.KeyF5:
