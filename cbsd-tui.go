@@ -47,7 +47,7 @@ type CbsdJail struct {
 	Parameters []PairString
 }
 
-var USE_DOAS = true
+var USE_DOAS = false
 
 var txtProgramName = "CBSD-TUI"
 var txtHelp = `- To navigate in jails list use 'Up' and 'Down' keys or mouse
@@ -745,17 +745,14 @@ func GetJailByName(jname string) *CbsdJail {
 }
 
 func LoginToJail(jname string) {
-	var jail *CbsdJail = nil
 	if jname == cbsdJailConsoleActive {
+		SendTerminalCommand("\x03")
+		SendTerminalCommand("exit")
+		cbsdJailConsoleActive = ""
 		return
 	}
-	for _, j := range cbsdJails {
-		if j.Name == jname && j.IsRunning {
-			jail = j
-			break
-		}
-	}
-	if jail != nil {
+	jail := GetJailByName(jname)
+	if jail != nil && jail.IsRunning {
 		if cbsdJailConsoleActive != "" {
 			SendTerminalCommand("\x03")
 			SendTerminalCommand("exit")
