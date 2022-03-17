@@ -451,6 +451,7 @@ func RefreshJailList() {
 	}
 	cbsdListWalker = list.NewSimpleListWalker(cbsdJailsGrid)
 	cbsdListJails.SetWalker(cbsdListWalker, app)
+	SetJailListFocus()
 }
 
 func (jail *CbsdJail) SnapshotJail() {
@@ -644,6 +645,7 @@ func (jail CbsdJail) GetMenuButton() *keypress.Widget {
 				gowid.MakeKeyExt(tcell.KeyEnter),
 				gowid.MakeKeyExt(tcell.KeyF2),
 				gowid.MakeKeyExt(tcell.KeyTab),
+				gowid.MakeKeyExt(tcell.KeyCtrlR),
 			},
 		},
 	)
@@ -885,6 +887,8 @@ func JailListButtonCallBack(jname string, key gowid.IKey) {
 		LoginToJail(jname)
 	case tcell.KeyF2:
 		OpenJailActionsMenu(jname)
+	case tcell.KeyCtrlR:
+		RefreshJailList()
 	case tcell.KeyTab:
 		if next, ok := cbsdWidgets.FindNextSelectable(gowid.Forwards, true); ok {
 			cbsdWidgets.SetFocus(app, next)
