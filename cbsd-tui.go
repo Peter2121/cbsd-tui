@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gcla/gowid"
@@ -657,6 +658,7 @@ func (jail CbsdJail) GetMenuButton() *keypress.Widget {
 
 func ExecCommand(title string, command string, args []string) {
 	var cmd *exec.Cmd
+	//MAXBUF := 10000000000
 	txtout := text.New(title, text.Options{Align: gowid.HAlignLeft{}})
 	outdlg := CreateActionsLogDialog(txtout)
 	if cbsdActionsDialog != nil {
@@ -669,30 +671,35 @@ func ExecCommand(title string, command string, args []string) {
 	cmd = exec.Command(command, args...)
 	cmd.Env = os.Environ()
 	cmd.Env = append(cmd.Env, "NOCOLOR=1")
+	cmd.Stderr = cmd.Stdout
 	cmdout, err := cmd.StdoutPipe()
 	defer cmdout.Close()
 	if err != nil {
 		log.Errorf("cmdout creation failed with %s\n", err)
 	}
-	cmd.Stderr = cmd.Stdout
-	cmdchan := make(chan struct{})
 	scanner := bufio.NewScanner(cmdout)
+	//scanner.Buffer(make([]byte, MAXBUF), MAXBUF)
+	var wg sync.WaitGroup
+	wg.Add(1)
+
 	go func() {
 		for scanner.Scan() {
 			cr := []byte("\n")
+			logtxt := scanner.Text()
+			log.Info(logtxt)
 			txtbytes := []byte(txtout.Content().String())
 			txtbytes = append(txtbytes, cr...)
 			txtbytes = append(txtbytes, scanner.Bytes()...)
 			outdlgwriter.Write(txtbytes)
 			app.RedrawTerminal()
 		}
-		cmdchan <- struct{}{}
+		wg.Done()
 	}()
 	err = cmd.Start()
 	if err != nil {
 		log.Errorf("cmd.Start() failed with %s\n", err)
 	}
-	<-cmdchan
+	wg.Wait()
 	err = cmd.Wait()
 	if err != nil {
 		log.Errorf("cmd.Wait() failed with %s\n", err)
@@ -722,6 +729,7 @@ func (jail *CbsdJail) StartStopJail() {
 		}
 		args = append(args, "jstart")
 		args = append(args, "inter=1")
+		args = append(args, "quiet=1") // Temporary workaround for lock reading stdout when jail service use stderr
 		args = append(args, "jname="+jail.Name)
 	}
 	if USE_DOAS {
