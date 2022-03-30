@@ -668,6 +668,7 @@ func ExecCommand(title string, command string, args []string) {
 	}
 	outdlg.Open(viewHolder, gowid.RenderWithRatio{R: 0.7}, app)
 	outdlgwriter := text.Writer{txtout, app}
+	app.RedrawTerminal()
 	cmd = exec.Command(command, args...)
 	cmd.Env = os.Environ()
 	cmd.Env = append(cmd.Env, "NOCOLOR=1")
@@ -684,13 +685,9 @@ func ExecCommand(title string, command string, args []string) {
 
 	go func() {
 		for scanner.Scan() {
-			cr := []byte("\n")
 			logtxt := scanner.Text()
-			log.Info(logtxt)
-			txtbytes := []byte(txtout.Content().String())
-			txtbytes = append(txtbytes, cr...)
-			txtbytes = append(txtbytes, scanner.Bytes()...)
-			outdlgwriter.Write(txtbytes)
+			logtxt = txtout.Content().String() + "\n" + logtxt
+			outdlgwriter.Write([]byte(logtxt))
 			app.RedrawTerminal()
 		}
 		wg.Done()
@@ -706,8 +703,57 @@ func ExecCommand(title string, command string, args []string) {
 	}
 }
 
+func ExecShellCommand(title string, command string, args []string, logfile string) {
+	var cmd *exec.Cmd
+	//MAXBUF := 10000000000
+	txtout := text.New(title, text.Options{Align: gowid.HAlignLeft{}})
+	outdlg := CreateActionsLogDialog(txtout)
+	if cbsdActionsDialog != nil {
+		if cbsdActionsDialog.IsOpen() {
+			cbsdActionsDialog.Close(app)
+		}
+	}
+	outdlg.Open(viewHolder, gowid.RenderWithRatio{R: 0.7}, app)
+	outdlgwriter := text.Writer{txtout, app}
+	app.RedrawTerminal()
+	cmd = exec.Command(command, args...)
+	cmd.Env = os.Environ()
+	cmd.Env = append(cmd.Env, "NOCOLOR=1")
+	file, err := os.Open(logfile)
+	if err != nil {
+		log.Errorf("Cannot open file %s: %s", logfile, err)
+	}
+	defer file.Close()
+	scanner := bufio.NewScanner(file)
+	//scanner.Buffer(make([]byte, MAXBUF), MAXBUF)
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	go func() {
+		for scanner.Scan() {
+			logtxt := scanner.Text()
+			logtxt = txtout.Content().String() + "\n" + logtxt
+			outdlgwriter.Write([]byte(logtxt))
+			app.RedrawTerminal()
+		}
+		wg.Done()
+	}()
+	err = cmd.Start()
+	if err != nil {
+		log.Errorf("cmd.Start() failed with %s\n", err)
+	}
+	err = cmd.Wait()
+	if err != nil {
+		log.Errorf("cmd.Wait() failed with %s\n", err)
+	}
+	wg.Wait()
+}
+
 func (jail *CbsdJail) StartStopJail() {
 	txtheader := ""
+	var cmd string
+	shell := "/bin/sh"
+	logfile := "/var/log/jstart.log"
 	var args []string
 	var command string
 	if jail.IsRunning {
@@ -717,30 +763,48 @@ func (jail *CbsdJail) StartStopJail() {
 		}
 		txtheader = "Stopping jail...\n"
 		if USE_DOAS {
-			args = append(args, "cbsd")
+			args = append(args, cbsdProgram)
 		}
 		args = append(args, "jstop")
 		args = append(args, "inter=1")
 		args = append(args, "jname="+jail.Name)
+		if USE_DOAS {
+			command = doasProgram
+		} else {
+			command = cbsdProgram
+		}
+		ExecCommand(txtheader, command, args)
 	} else if jail.IsRunnable {
 		txtheader = "Starting jail...\n"
+		/*
+			if USE_DOAS {
+				args = append(args, "cbsd")
+			}
+			args = append(args, "jstart")
+			args = append(args, "inter=1")
+			args = append(args, "quiet=1") // Temporary workaround for lock reading stdout when jail service use stderr
+			args = append(args, "jname="+jail.Name)
+		*/
+		command = shell
+		cmd = ""
 		if USE_DOAS {
-			args = append(args, "cbsd")
+			cmd += doasProgram
+			cmd += " "
+			cmd += cbsdProgram
+		} else {
+			cmd += cbsdProgram
 		}
-		args = append(args, "jstart")
-		args = append(args, "inter=1")
-		args = append(args, "quiet=1") // Temporary workaround for lock reading stdout when jail service use stderr
-		args = append(args, "jname="+jail.Name)
+		cmd += " jstart"
+		cmd += " inter=1"
+		//		cmd += " quiet=1" // Temporary workaround for lock reading stdout when jail service use stderr
+		cmd += " jname=" + jail.Name
+		cmd += ">"
+		cmd += logfile
+		args = append(args, "-c")
+		args = append(args, cmd)
+		ExecShellCommand(txtheader, command, args, logfile)
 	}
-	if USE_DOAS {
-		command = doasProgram
-	} else {
-		command = cbsdProgram
-	}
-	if (!jail.IsRunning && jail.IsRunnable) || jail.IsRunning {
-		ExecCommand(txtheader, command, args)
-		jail.UpdateJailStatus()
-	}
+	jail.UpdateJailStatus()
 }
 
 func GetJailByName(jname string) *CbsdJail {
