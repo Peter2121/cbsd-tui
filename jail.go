@@ -149,3 +149,21 @@ func (jail *Jail) GetJailFromDb(dbname string, jname string) (bool, error) {
 
 	return true, nil
 }
+
+func (jail *Jail) UpdateJailFromDb(dbname string) (bool, error) {
+	db, err := sql.Open("sqlite3", dbname)
+	if err != nil {
+		return false, err
+	}
+	defer db.Close()
+
+	row := db.QueryRow("SELECT ip4_addr,status,astart,ver FROM jails WHERE jname = ?", jail.Jname)
+	if err := row.Scan(&jail.Ip4_addr, &jail.Status, &jail.Astart, &jail.Ver); err != nil {
+		if err == sql.ErrNoRows {
+			return false, nil
+		}
+		return false, err
+	}
+
+	return true, nil
+}

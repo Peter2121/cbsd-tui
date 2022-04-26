@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -67,6 +66,7 @@ var cbsdUser = "cbsd"
 var cbsdJlsHeader = []string{"NAME", "IP4_ADDRESS", "HOSTNAME", "STATUS", "AUTOSTART", "VERSION", "PATH", "INTERFACE", "BASERW", "VNET"}
 var cbsdJlsBlackList = []string{"PATH", "INTERFACE", "HOSTNAME", "BASERW", "VNET"}
 var pwProgram = "/usr/sbin/pw"
+var DB_NAME = "file:/usr/local/jails/cbsd/var/db/local.sqlite?mode=ro"
 
 //var cbsdJails []*CbsdJail
 var cbsdJailHeader []gowid.IWidget
@@ -342,13 +342,13 @@ func RunActionOnJail(action string, jname string) {
 	case "Stop":
 		jail.StartStopJail()
 	case "Create Snapshot":
-		jail.SnapshotJail()
+		SnapshotJail(jname)
 	case "List Snapshots":
-		jail.ListSnapshotsJail()
+		ListSnapshotsJail(jname)
 	case "Clone":
-		jail.CloneJail()
+		CloneJail(jname)
 	case "Export":
-		jail.ExportJail()
+		ExportJail(jname)
 	}
 }
 
@@ -370,15 +370,15 @@ func RunMenuAction(action string) {
 	case cbsdBottomMenuText[1]: // Actions Menu
 		OpenJailActionsMenu(jname)
 	case cbsdBottomMenuText[2]: // Clone
-		jail.CloneJail()
+		CloneJail(jname)
 	case cbsdBottomMenuText[3]: // Export
-		jail.ExportJail()
+		ExportJail(jname)
 	case cbsdBottomMenuText[4]: // Create Snapshot
-		jail.SnapshotJail()
+		SnapshotJail(jname)
 	case cbsdBottomMenuText[5]: // Exit
 		app.Close()
 	case cbsdBottomMenuText[6]: // List Snapshots
-		jail.ListSnapshotsJail()
+		ListSnapshotsJail(jname)
 	case cbsdBottomMenuText[7]: // Start/Stop
 		jail.StartStopJail()
 	}
@@ -440,7 +440,7 @@ func DoCloneJail(jname string, jnewjname string, jnewhname string, newip string)
 func RefreshJailList() {
 	//cbsdJails = GetCbsdJails()
 	var err error
-	cbsdJailsFromDb, err = GetJailsFromDb("file:/home/peter/Programming/golang/sqlite-test/local.sqlite?mode=rw")
+	cbsdJailsFromDb, err = GetJailsFromDb(DB_NAME)
 	if err != nil {
 		panic(err)
 	}
@@ -462,12 +462,12 @@ func RefreshJailList() {
 	SetJailListFocus()
 }
 
-func (jail *Jail) SnapshotJail() {
-	cbsdSnapshotJailDialog = MakeSnapshotJailDialog(jail.Jname)
+func SnapshotJail(jname string) {
+	cbsdSnapshotJailDialog = MakeSnapshotJailDialog(jname)
 	cbsdSnapshotJailDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
 }
 
-func (jail *Jail) ListSnapshotsJail() {
+func ListSnapshotsJail(jname string) {
 	// cbsd jsnapshot mode=list jname=nim1
 	var command string
 	txtheader := "List jail snapshots...\n"
@@ -477,7 +477,7 @@ func (jail *Jail) ListSnapshotsJail() {
 	}
 	args = append(args, "jsnapshot")
 	args = append(args, "mode=list")
-	args = append(args, "jname="+jail.Jname)
+	args = append(args, "jname="+jname)
 	if USE_DOAS {
 		command = doasProgram
 	} else {
@@ -486,12 +486,12 @@ func (jail *Jail) ListSnapshotsJail() {
 	ExecCommand(txtheader, command, args)
 }
 
-func (jail *Jail) CloneJail() {
-	cbsdCloneJailDialog = MakeCloneJailDialog(jail.Jname)
+func CloneJail(jname string) {
+	cbsdCloneJailDialog = MakeCloneJailDialog(jname)
 	cbsdCloneJailDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
 }
 
-func (jail *Jail) ExportJail() {
+func ExportJail(jname string) {
 	// cbsd jexport jname=nim1
 	var command string
 	txtheader := "Exporting jail...\n"
@@ -501,7 +501,7 @@ func (jail *Jail) ExportJail() {
 		args = append(args, "cbsd")
 	}
 	args = append(args, "jexport")
-	args = append(args, "jname="+jail.Jname)
+	args = append(args, "jname="+jname)
 
 	if USE_DOAS {
 		command = doasProgram
@@ -511,6 +511,12 @@ func (jail *Jail) ExportJail() {
 	ExecCommand(txtheader, command, args)
 }
 
+func GetJailStatus(jname string) string {
+	jail := GetJailByName(jname)
+	return jail.GetStatusString()
+}
+
+/*
 func GetJailStatus(jname string) string {
 	var stdout, stderr bytes.Buffer
 	//var jid int
@@ -543,7 +549,13 @@ func GetJailStatus(jname string) string {
 	}
 	return retstatus
 }
+*/
+func (jail *Jail) UpdateJailStatus() {
+	_, _ = jail.UpdateJailFromDb(DB_NAME)
+	jail.UpdateCbsdJailLine()
+}
 
+/*
 func (jail *Jail) UpdateJailStatus() {
 	jstatus := GetJailStatus(jail.Jname)
 	status_changed := false
@@ -563,33 +575,13 @@ func (jail *Jail) UpdateJailStatus() {
 			(*jail).Status = 0
 			status_changed = true
 		}
-		/*
-			if (*jail).IsRunnable() {
-				(*jail).IsRunnable = false
-				status_changed = true
-			}
-		*/
 	}
 	if status_changed == false {
 		return
 	}
-	/*
-		for i, p := range (*jail).Parameters {
-			if p.Key == "STATUS" {
-				switch (*jail).IsRunning {
-				case true:
-					(*jail).Parameters[i].Value = "On"
-					//p.Value = "On"
-				case false:
-					(*jail).Parameters[i].Value = "Off"
-					//p.Value = "Off"
-				}
-			}
-		}
-	*/
 	jail.UpdateCbsdJailLine()
 }
-
+*/
 func (jail *Jail) UpdateCbsdJailLine() {
 	for _, line := range cbsdJailsLines {
 		btn := line[0].(*keypress.Widget).SubWidget().(*cellmod.Widget).SubWidget().(*button.Widget)
@@ -598,46 +590,7 @@ func (jail *Jail) UpdateCbsdJailLine() {
 		if str != jail.Jname {
 			continue
 		}
-		style := GetJailStyle(jail)
-		/*
-			for _, param := range jail.Parameters {
-				if param.Key == "NAME" {
-					continue
-				}
-				if IsBlackListed(param.Key) {
-					continue
-				}
-				str := param.Value
-				if param.Key == "AUTOSTART" {
-					switch param.Value {
-					case "0":
-						str = "Off"
-					case "1":
-						str = "On"
-					}
-				}
-				if param.Key == "BASERW" {
-					switch param.Value {
-					case "0":
-						str = "Yes"
-					case "1":
-						str = "No"
-					}
-				}
-				if param.Key == "VNET" {
-					switch param.Value {
-					case "0":
-						str = "Yes"
-					case "1":
-						str = "No"
-					}
-				}
-				ptxt := text.New(str, text.Options{Align: gowid.HAlignMiddle{}})
-				ptxts := GetStyledWidget(ptxt, style)
-				line[i] = ptxts
-				i++
-			}
-		*/
+		style := GetJailStyle(jail.Status, jail.Astart)
 		//		var cbsdJlsHeader = []string{"NAME", "IP4_ADDRESS", "HOSTNAME", "STATUS", "AUTOSTART", "VERSION", "PATH", "INTERFACE", "BASERW", "VNET"}
 		//		var cbsdJlsBlackList = []string{"PATH", "INTERFACE", "HOSTNAME", "BASERW", "VNET"}
 
@@ -651,7 +604,7 @@ func (jail *Jail) UpdateCbsdJailLine() {
 
 func (jail *Jail) GetMenuButton() *keypress.Widget {
 	btxt := text.New(jail.Jname, text.Options{Align: gowid.HAlignMiddle{}})
-	style := GetJailStyle(jail)
+	style := GetJailStyle(jail.Status, jail.Astart)
 	txts := GetStyledWidget(btxt, style)
 	btnnew := button.New(txts, button.Options{
 		Decoration: button.BareDecoration,
@@ -917,22 +870,12 @@ func GetCbsdJlsHeader() []gowid.IWidget {
 	return header
 }
 
-func GetJailStyle(jail *Jail) string {
+func GetJailStyle(jailstatus int, jailastart int) string {
 	style := "gray"
-	/*
-		for _, p := range jail.Parameters {
-			if p.Key == "STATUS" {
-				status = p.Value
-			}
-			if p.Key == "AUTOSTART" {
-				astart = p.Value
-			}
-		}
-	*/
-	if jail.Status == 1 {
+	if jailstatus == 1 {
 		style = "green"
-	} else if jail.Status == 0 {
-		switch jail.Astart {
+	} else if jailstatus == 0 {
+		switch jailastart {
 		case 1:
 			style = "red"
 		default:
@@ -988,7 +931,7 @@ func JailListButtonCallBack(jname string, key gowid.IKey) {
 func (jail *Jail) MakeGridLine() []gowid.IWidget {
 	style := "gray"
 	line := make([]gowid.IWidget, 0)
-	style = GetJailStyle(jail)
+	style = GetJailStyle(jail.Status, jail.Astart)
 	line = append(line, jail.GetMenuButton())
 	/*
 		for _, param := range jail.Parameters {
@@ -1265,7 +1208,7 @@ func main() {
 		"yellow":        gowid.MakePaletteEntry(gowid.ColorYellow, gowid.ColorNone),
 		"magenta":       gowid.MakePaletteEntry(gowid.ColorMagenta, gowid.ColorNone),
 	}
-	cbsdJailsFromDb, err = GetJailsFromDb("file:/home/peter/Programming/golang/sqlite-test/local.sqlite?mode=rw")
+	cbsdJailsFromDb, err = GetJailsFromDb(DB_NAME)
 	if err != nil {
 		panic(err)
 	}
