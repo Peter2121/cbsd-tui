@@ -41,6 +41,14 @@ func (jail *Jail) GetAutoStartString() string {
 	return strAutoStart[jail.Astart]
 }
 
+func (jail *Jail) GetAutoStartBool() bool {
+	if jail.Astart == 1 {
+		return true
+	} else {
+		return false
+	}
+}
+
 func (jail *Jail) GetAutoStartCode(astart string) int {
 	for i, m := range strAutoStart {
 		if m == astart {
@@ -116,7 +124,7 @@ func (jail *Jail) PutJailToDb(dbname string) (bool, error) {
 	}
 	defer db.Close()
 
-	result, err := db.Exec("UPDATE jails SET ip4_addr=?, status=?, astart=?, ver=? WHERE jname=", jail.Ip4_addr, jail.Status, jail.Astart, jail.Ver, jail.Jname)
+	result, err := db.Exec("UPDATE jails SET ip4_addr=?, status=?, astart=?, ver=? WHERE jname=?", jail.Ip4_addr, jail.Status, jail.Astart, jail.Ver, jail.Jname)
 	if err != nil {
 		return false, err
 	}
