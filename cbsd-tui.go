@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"os/user"
 	"strings"
 	"sync"
 	"time"
@@ -54,11 +55,13 @@ var doasProgram = "/usr/local/bin/doas"
 var cbsdProgram = "/usr/local/bin/cbsd"
 var cbsdCommandJailLogin = "jlogin"
 var cbsdArgJailName = "jname"
-var cbsdUser = "cbsd"
+var cbsdUserName = "cbsd"
 var cbsdJlsHeader = []string{"NAME", "IP4_ADDRESS", "STATUS", "AUTOSTART", "VERSION"}
 
 var pwProgram = "/usr/sbin/pw"
-var DB_NAME = "file:/usr/local/jails/cbsd/var/db/local.sqlite?mode=ro"
+
+//var DB_NAME = "file:/usr/local/jails/cbsd/var/db/local.sqlite?mode=ro"
+var DB_NAME string
 
 var cbsdListHeader []gowid.IWidget
 var cbsdListLines [][]gowid.IWidget
@@ -190,7 +193,6 @@ func MakeSnapshotJailDialog(jname string) *dialog.Widget {
 		Msg: "Cancel",
 	}
 	snapjaildialog := dialog.New(
-		//edlines,
 		framed.NewSpace(
 			edlines,
 		),
@@ -248,50 +250,6 @@ func MakeCloneJailDialog(jname string) *dialog.Widget {
 		},
 	)
 	return clonejaildialog
-	/*
-			msg := text.New("Do you want to quit?")
-			yesno = dialog.New(
-				framed.NewSpace(hpadding.New(msg, gowid.HAlignMiddle{}, gowid.RenderFixed{})),
-				dialog.Options{
-					Buttons: dialog.OkCancel,
-				},
-			)
-			yesno.Open(viewHolder, gowid.RenderWithRatio{R: 0.5}, app)
-
-
-		Yes := dialog.Button{
-			Msg: "Yes",
-			Action: gowid.MakeWidgetCallback("exec", gowid.WidgetChangedFunction(func(app gowid.IApp, w gowid.IWidget) {
-				termshark.ShouldSwitchTerminal = true
-				switchTerm.Close(app)
-				RequestQuit()
-			})),
-		}
-		No := dialog.Button{
-			Msg: "No",
-		}
-		NoAsk := dialog.Button{
-			Msg: "No, don't ask",
-			Action: gowid.MakeWidgetCallback("exec", gowid.WidgetChangedFunction(func(app gowid.IApp, w gowid.IWidget) {
-				termshark.SetConf("main.disable-term-helper", true)
-				switchTerm.Close(app)
-			})),
-		}
-		switchTerm = dialog.New(
-			framed.NewSpace(paragraph.New(fmt.Sprintf("Termshark is running with TERM=%s. The terminal database contains %s. Would you like to switch for a more colorful experience? Termshark will need to restart.", term, term256))),
-			dialog.Options{
-				Buttons:         []dialog.Button{Yes, No, NoAsk},
-				NoShadow:        true,
-				BackgroundStyle: gowid.MakePaletteRef("dialog"),
-				BorderStyle:     gowid.MakePaletteRef("dialog"),
-				ButtonStyle:     gowid.MakePaletteRef("dialog-button"),
-				Modal:           true,
-				FocusOnWidget:   false,
-			},
-		)
-		switchTerm.Open(appView, gowid.RenderWithRatio{R: 0.5}, app)
-
-	*/
 }
 
 func MakeCbsdActionsMenu() map[string][]gowid.IWidget {
@@ -320,16 +278,11 @@ func MakeCbsdJailActionsMenu(jname string) []gowid.IWidget {
 
 func RunActionOnJail(action string, jname string) {
 	log.Infof("Action: " + action + " on jail: " + jname)
-	jail := GetJailByName(jname)
-	if jail == nil {
-		log.Errorf("Cannot find jail: " + jname)
-		return
-	}
 	switch action {
 	case "Start":
-		StartStopJail(jail)
+		StartStopJail(jname)
 	case "Stop":
-		StartStopJail(jail)
+		StartStopJail(jname)
 	case "Create Snapshot":
 		SnapshotJail(jname)
 	case "List Snapshots":
@@ -343,19 +296,22 @@ func RunActionOnJail(action string, jname string) {
 
 func RunMenuAction(action string) {
 	log.Infof("Menu Action: " + action)
-	jname := GetSelectedJailName()
-	log.Infof("JailName: " + jname)
-	jail := GetJailByName(jname)
-	if jail == nil {
-		log.Errorf("Cannot find jail: " + jname)
-		return
-	}
+
 	switch action {
 	// "[F1]Help ",            "[F2]Actions Menu ", "[F5]Clone ",           "[F6]Export ",
 	// "[F7]Create Snapshot ", "[F10]Exit ",        "[F11]List Snapshots ", "[F12]Start/Stop"
 	case cbsdBottomMenuText[0]: // Help
 		helpdialog := CreateHelpDialog()
 		helpdialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.6}, app)
+		return
+	case cbsdBottomMenuText[5]: // Exit
+		app.Quit()
+	}
+
+	jname := GetSelectedJailName()
+	log.Infof("JailName: " + jname)
+
+	switch action {
 	case cbsdBottomMenuText[1]: // Actions Menu
 		OpenJailActionsMenu(jname)
 	case cbsdBottomMenuText[2]: // Clone
@@ -364,12 +320,10 @@ func RunMenuAction(action string) {
 		ExportJail(jname)
 	case cbsdBottomMenuText[4]: // Create Snapshot
 		SnapshotJail(jname)
-	case cbsdBottomMenuText[5]: // Exit
-		app.Close()
 	case cbsdBottomMenuText[6]: // List Snapshots
 		ListSnapshotsJail(jname)
 	case cbsdBottomMenuText[7]: // Start/Stop
-		StartStopJail(jail)
+		StartStopJail(jname)
 	}
 }
 
@@ -503,72 +457,11 @@ func GetJailStatus(jname string) string {
 	return jail.GetStatusString()
 }
 
-/*
-func GetJailStatus(jname string) string {
-	var stdout, stderr bytes.Buffer
-	//var jid int
-	retstatus := "Unknown"
-	cmd_args := make([]string, 0)
-	cmd_args = append(cmd_args, "jstatus")
-	cmd_args = append(cmd_args, "invert=true")
-	cmd_args = append(cmd_args, "jname="+jname)
-	cmd := exec.Command(cbsdProgram, cmd_args...)
-	cmd.Env = os.Environ()
-	cmd.Env = append(cmd.Env, "NOCOLOR=1")
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	err := cmd.Run()
-	if err != nil {
-		log.Errorf("cmd.Run() failed with %s\n", err)
-	}
-	str_out := string(stdout.Bytes())
-	str_out = strings.TrimSuffix(str_out, "\n")
-	if str_out != "" {
-		jid, err := strconv.Atoi(str_out)
-		if err != nil {
-			log.Errorf("cbsd jstatus incorrect return %s\n", err)
-		}
-		if jid > 0 {
-			retstatus = "On"
-		} else if jid == 0 {
-			retstatus = "Off"
-		}
-	}
-	return retstatus
-}
-*/
 func UpdateJailStatus(jail *Jail) {
 	_, _ = jail.UpdateJailFromDb(DB_NAME)
 	UpdateJailLine(jail)
 }
 
-/*
-func (jail *Jail) UpdateJailStatus() {
-	jstatus := GetJailStatus(jail.Jname)
-	status_changed := false
-	switch jstatus {
-	case "On":
-		if (*jail).IsRunning() == false {
-			(*jail).Status = 1
-			status_changed = true
-		}
-	case "Off":
-		if (*jail).IsRunning() {
-			(*jail).Status = 0
-			status_changed = true
-		}
-	default:
-		if (*jail).IsRunning() {
-			(*jail).Status = 0
-			status_changed = true
-		}
-	}
-	if status_changed == false {
-		return
-	}
-	jail.UpdateJailLine()
-}
-*/
 func UpdateJailLine(jail *Jail) {
 	for _, line := range cbsdListLines {
 		btn := line[0].(*keypress.Widget).SubWidget().(*cellmod.Widget).SubWidget().(*button.Widget)
@@ -595,6 +488,11 @@ func GetMenuButton(jail *Jail) *keypress.Widget {
 	btnnew := button.New(txts, button.Options{
 		Decoration: button.BareDecoration,
 	})
+	btnnew.OnDoubleClick(gowid.WidgetCallback{Name: "cbb_" + btxt.Content().String(), WidgetChangedFunction: func(app gowid.IApp, w gowid.IWidget) {
+		app.Run(gowid.RunFunction(func(app gowid.IApp) {
+			LoginToJail(btxt.Content().String())
+		}))
+	}})
 	kpbtn := keypress.New(
 		cellmod.Opaque(btnnew),
 		keypress.Options{
@@ -705,13 +603,19 @@ func ExecShellCommand(title string, command string, args []string, logfile strin
 	wg.Wait()
 }
 
-func StartStopJail(jail *Jail) {
+func StartStopJail(jname string) {
 	txtheader := ""
 	var cmd string
 	shell := "/bin/sh"
 	logfile := "/var/log/jstart.log"
 	var args []string
 	var command string
+
+	jail := GetJailByName(jname)
+	if jail == nil {
+		log.Errorf("Cannot find jail: " + jname)
+		return
+	}
 	if jail.IsRunning() {
 		if cbsdJailConsoleActive == jail.Jname {
 			SendTerminalCommand("exit")
@@ -879,44 +783,6 @@ func MakeGridLine(jail *Jail) []gowid.IWidget {
 	line := make([]gowid.IWidget, 0)
 	style = GetJailStyle(jail.Status, jail.Astart)
 	line = append(line, GetMenuButton(jail))
-	/*
-		for _, param := range jail.Parameters {
-			if param.Key == "NAME" {
-				continue
-			}
-			if IsBlackListed(param.Key) {
-				continue
-			}
-			str := param.Value
-			if param.Key == "AUTOSTART" {
-				switch param.Value {
-				case "0":
-					str = "Off"
-				case "1":
-					str = "On"
-				}
-			}
-			if param.Key == "BASERW" {
-				switch param.Value {
-				case "0":
-					str = "Yes"
-				case "1":
-					str = "No"
-				}
-			}
-			if param.Key == "VNET" {
-				switch param.Value {
-				case "0":
-					str = "Yes"
-				case "1":
-					str = "No"
-				}
-			}
-			ptxt := text.New(str, text.Options{Align: gowid.HAlignMiddle{}})
-			ptxts := GetStyledWidget(ptxt, style)
-			line = append(line, ptxts)
-		}
-	*/
 	line = append(line, GetStyledWidget(text.New(jail.Ip4_addr, text.Options{Align: gowid.HAlignMiddle{}}), style))
 	line = append(line, GetStyledWidget(text.New(jail.GetStatusString(), text.Options{Align: gowid.HAlignMiddle{}}), style))
 	line = append(line, GetStyledWidget(text.New(jail.GetAutoStartString(), text.Options{Align: gowid.HAlignMiddle{}}), style))
@@ -949,7 +815,7 @@ func GetCbsdJlsCommandArgs() []string {
 
 func GetNodeName() string {
 	nname := ""
-	cmd := exec.Command(pwProgram, "user", "show", cbsdUser)
+	cmd := exec.Command(pwProgram, "user", "show", cbsdUserName)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -1102,12 +968,18 @@ func main() {
 		"yellow":        gowid.MakePaletteEntry(gowid.ColorYellow, gowid.ColorNone),
 		"magenta":       gowid.MakePaletteEntry(gowid.ColorMagenta, gowid.ColorNone),
 	}
+
+	cbsdUser, err := user.Lookup(cbsdUserName)
+	if err != nil {
+		panic(err)
+	}
+	DB_NAME = "file:" + cbsdUser.HomeDir + "/var/db/local.sqlite?mode=ro"
+
 	cbsdJailsFromDb, err = GetJailsFromDb(DB_NAME)
 	if err != nil {
 		panic(err)
 	}
 
-	//cbsdJails = GetCbsdJails()
 	cbsdListLines = MakeJailsLines()
 	cbsdListHeader = GetJailsListHeader()
 	cbsdActionsMenu = MakeCbsdActionsMenu()
@@ -1128,6 +1000,7 @@ func main() {
 		Command:           strings.Split(os.Getenv("SHELL"), " "),
 		HotKey:            terminal.HotKey{K: tcell.KeyCtrlZ},
 		HotKeyPersistence: &terminal.HotKeyDuration{D: time.Second * 2},
+		Scrollbar:         true,
 		Scrollback:        1000,
 	})
 	if err != nil {
@@ -1137,23 +1010,6 @@ func main() {
 	cbsdListWalker = list.NewSimpleListWalker(cbsdListGrid)
 	cbsdListJails = list.New(cbsdListWalker)
 	listjails := vpadding.New(cbsdListJails, gowid.VAlignTop{}, gowid.RenderFlow{})
-	//hlptxt := text.New("Press \"Esc\" to exit", text.Options{Align: gowid.HAlignLeft{}})
-	//hlptxtst := styled.New(hlptxt, gowid.MakePaletteRef("magenta"))
-
-	/*
-		clickToOpenWidgets := make([]gowid.IContainerWidget, 0)
-		for i := 0; i < 20; i++ {
-			btn := button.New(text.New(fmt.Sprintf("clickety%d", i)))
-			btnStyled := styled.NewExt(btn, gowid.MakePaletteRef("red"), gowid.MakePaletteRef("white"))
-			btnSite := menu.NewSite(menu.SiteOptions{YOffset: 1})
-			btn.OnClick(gowid.WidgetCallback{gowid.ClickCB{}, func(app gowid.IApp, target gowid.IWidget) {
-				menu1.Open(btnSite, app)
-			}})
-			clickToOpenWidgets = append(clickToOpenWidgets, &gowid.ContainerWidget{IWidget: btnSite, D: fixed})
-			clickToOpenWidgets = append(clickToOpenWidgets, &gowid.ContainerWidget{IWidget: btnStyled, D: fixed})
-		}
-		clickToOpenCols := columns.New(clickToOpenWidgets)
-	*/
 
 	MakeBottomMenu()
 	gbmenu := columns.New(cbsdBottomMenu, columns.Options{DoNotSetSelected: true, LeftKeys: make([]vim.KeyPress, 0), RightKeys: make([]vim.KeyPress, 0)})
