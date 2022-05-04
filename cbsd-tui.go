@@ -62,8 +62,10 @@ var cbsdJlsHeader = []string{"NAME", "IP4_ADDRESS", "STATUS", "AUTOSTART", "VERS
 
 var pwProgram = "/usr/sbin/pw"
 
-//var DB_NAME = "file:/usr/local/jails/cbsd/var/db/local.sqlite?mode=ro"
-var DB_NAME string
+var cbsdUser *user.User = nil
+
+//var cbsdDatabaseName = "file:/usr/local/jails/cbsd/var/db/local.sqlite?mode=ro"
+var cbsdDatabaseName = "/var/db/local.sqlite"
 
 var cbsdListHeader []gowid.IWidget
 var cbsdListLines [][]gowid.IWidget
@@ -80,7 +82,10 @@ var cbsdJailsFromDb []*Jail
 
 //var cbsdActionsMenuText = []string{"Start/Stop", "Create Snapshot", "List Snapshots", "Clone", "Export", "Migrate", "Destroy", "Makeresolv", "Show Config"}
 var cbsdActionsMenuText = []string{"Start/Stop", "Create Snapshot", "List Snapshots", "Edit", "Clone", "Export"}
-var cbsdBottomMenuText = []string{"[F1]Help ", "[F2]Actions Menu ", "[F4]Edit ", "[F5]Clone ", "[F6]Export ", "[F7]Create Snapshot ", "[F10]Exit ", "[F11]List Snapshots ", "[F12]Start/Stop"}
+
+//var cbsdBottomMenuText = []string{"[F1]Help ", "[F2]Actions Menu ", "[F4]Edit ", "[F5]Clone ", "[F6]Export ", "[F7]Create Snapshot ", "[F10]Exit ", "[F11]List Snapshots ", "[F12]Start/Stop"}
+var cbsdBottomMenuText1 = []string{" 1", " 2", " 4", " 5", " 6", " 7", " 10", " 11", " 12"}
+var cbsdBottomMenuText2 = []string{"Help ", "Actions Menu ", "Edit ", "Clone ", "Export ", "Create Snapshot ", "Exit ", "List Snapshots ", "Start/Stop"}
 var cbsdActionsMenu map[string][]gowid.IWidget
 var cbsdActionsDialog *dialog.Widget
 var cbsdCloneJailDialog *dialog.Widget
@@ -93,6 +98,21 @@ var menu2 *menu.Widget
 var viewHolder *holder.Widget
 
 type handler struct{}
+
+func GetCbsdDbConnString(readwrite bool) string {
+	var err error
+	if cbsdUser == nil {
+		cbsdUser, err = user.Lookup(cbsdUserName)
+		if err != nil {
+			panic(err)
+		}
+	}
+	if readwrite {
+		return "file:" + cbsdUser.HomeDir + cbsdDatabaseName + "?mode=rw"
+	} else {
+		return "file:" + cbsdUser.HomeDir + cbsdDatabaseName + "?mode=ro"
+	}
+}
 
 func CreateCbsdJailActionsDialog(jname string) *dialog.Widget {
 	actionlist := list.NewSimpleListWalker(cbsdActionsMenu[jname])
@@ -385,11 +405,11 @@ func RunMenuAction(action string) {
 	switch action {
 	// "[F1]Help ",            "[F2]Actions Menu ", "[F4]Edit ",            "[F5]Clone ",      "[F6]Export ",
 	// "[F7]Create Snapshot ", "[F10]Exit ",        "[F11]List Snapshots ", "[F12]Start/Stop"
-	case cbsdBottomMenuText[0]: // Help
+	case cbsdBottomMenuText2[0]: // Help
 		helpdialog := CreateHelpDialog()
 		helpdialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.6}, app)
 		return
-	case cbsdBottomMenuText[6]: // Exit
+	case cbsdBottomMenuText2[6]: // Exit
 		app.Quit()
 	}
 
@@ -397,19 +417,19 @@ func RunMenuAction(action string) {
 	log.Infof("JailName: " + jname)
 
 	switch action {
-	case cbsdBottomMenuText[1]: // Actions Menu
+	case cbsdBottomMenuText2[1]: // Actions Menu
 		OpenJailActionsMenu(jname)
-	case cbsdBottomMenuText[2]: // Edit
+	case cbsdBottomMenuText2[2]: // Edit
 		EditJail(jname)
-	case cbsdBottomMenuText[3]: // Clone
+	case cbsdBottomMenuText2[3]: // Clone
 		CloneJail(jname)
-	case cbsdBottomMenuText[4]: // Export
+	case cbsdBottomMenuText2[4]: // Export
 		ExportJail(jname)
-	case cbsdBottomMenuText[5]: // Create Snapshot
+	case cbsdBottomMenuText2[5]: // Create Snapshot
 		SnapshotJail(jname)
-	case cbsdBottomMenuText[7]: // List Snapshots
+	case cbsdBottomMenuText2[7]: // List Snapshots
 		ListSnapshotsJail(jname)
-	case cbsdBottomMenuText[8]: // Start/Stop
+	case cbsdBottomMenuText2[8]: // Start/Stop
 		StartStopJail(jname)
 	}
 }
@@ -455,7 +475,7 @@ func DoEditJail(jname string, astart bool, version string, ip string) {
 	if ip != "" {
 		jail.Ip4_addr = ip
 	}
-	_, err := jail.PutJailToDb(DB_NAME)
+	_, err := jail.PutJailToDb(GetCbsdDbConnString(true))
 	if err != nil {
 		panic(err)
 	}
@@ -490,7 +510,7 @@ func DoCloneJail(jname string, jnewjname string, jnewhname string, newip string)
 
 func RefreshJailList() {
 	var err error
-	cbsdJailsFromDb, err = GetJailsFromDb(DB_NAME)
+	cbsdJailsFromDb, err = GetJailsFromDb(GetCbsdDbConnString(false))
 	if err != nil {
 		panic(err)
 	}
@@ -572,7 +592,7 @@ func GetJailStatus(jname string) string {
 }
 
 func UpdateJailStatus(jail *Jail) {
-	_, _ = jail.UpdateJailFromDb(DB_NAME)
+	_, _ = jail.UpdateJailFromDb(GetCbsdDbConnString(false))
 	UpdateJailLine(jail)
 }
 
@@ -999,21 +1019,21 @@ func (h handler) UnhandledInput(app gowid.IApp, ev interface{}) bool {
 				cbsdWidgets.SetFocus(app, next)
 			}
 		case tcell.KeyF1:
-			RunMenuAction(cbsdBottomMenuText[0])
+			RunMenuAction(cbsdBottomMenuText2[0]) // Help
 		case tcell.KeyF2:
-			RunMenuAction(cbsdBottomMenuText[1])
+			RunMenuAction(cbsdBottomMenuText2[1]) // Actions Menu
 		case tcell.KeyF4:
-			RunMenuAction(cbsdBottomMenuText[2])
+			RunMenuAction(cbsdBottomMenuText2[2]) // Edit
 		case tcell.KeyF5:
-			RunMenuAction(cbsdBottomMenuText[3])
+			RunMenuAction(cbsdBottomMenuText2[3]) // Clone
 		case tcell.KeyF6:
-			RunMenuAction(cbsdBottomMenuText[4])
+			RunMenuAction(cbsdBottomMenuText2[4]) // Export
 		case tcell.KeyF7:
-			RunMenuAction(cbsdBottomMenuText[5])
+			RunMenuAction(cbsdBottomMenuText2[5]) // Create Snapshot
 		case tcell.KeyF11:
-			RunMenuAction(cbsdBottomMenuText[7])
+			RunMenuAction(cbsdBottomMenuText2[7]) // List Snapshots
 		case tcell.KeyF12:
-			RunMenuAction(cbsdBottomMenuText[8])
+			RunMenuAction(cbsdBottomMenuText2[8]) // Start/Stop
 		default:
 			handled = false
 		}
@@ -1043,16 +1063,23 @@ func GetStyledWidget(w gowid.IWidget, color string) *styled.Widget {
 
 func MakeBottomMenu() {
 	cbsdBottomMenu = make([]gowid.IContainerWidget, 0)
-	for _, m := range cbsdBottomMenuText {
-		mtext := text.New(m, text.Options{Align: gowid.HAlignLeft{}})
-		mbtn := button.New(mtext, button.Options{Decoration: button.BareDecoration})
-		mbtns := GetStyledWidget(mbtn, "red")
-		mbtn.OnClick(gowid.WidgetCallback{Name: "cbb_" + mtext.Content().String(), WidgetChangedFunction: func(app gowid.IApp, w gowid.IWidget) {
+	for i, m := range cbsdBottomMenuText2 {
+		mtext1 := text.New(cbsdBottomMenuText1[i], text.Options{Align: gowid.HAlignLeft{}})
+		mtext1st := styled.New(mtext1, gowid.MakePaletteRef("blackgreen"))
+		mtext2 := text.New(m, text.Options{Align: gowid.HAlignLeft{}})
+		mtext2st := styled.New(mtext2, gowid.MakePaletteRef("graydgreen"))
+		mtextgrp := hpadding.New(
+			columns.NewFixed(mtext1st, mtext2st),
+			gowid.HAlignLeft{},
+			gowid.RenderFixed{},
+		)
+		mbtn := button.New(mtextgrp, button.Options{Decoration: button.BareDecoration})
+		mbtn.OnClick(gowid.WidgetCallback{Name: "cbb_" + mtext2.Content().String(), WidgetChangedFunction: func(app gowid.IApp, w gowid.IWidget) {
 			app.Run(gowid.RunFunction(func(app gowid.IApp) {
-				RunMenuAction(mtext.Content().String())
+				RunMenuAction(mtext2.Content().String())
 			}))
 		}})
-		cbsdBottomMenu = append(cbsdBottomMenu, &gowid.ContainerWidget{IWidget: mbtns, D: gowid.RenderFixed{}})
+		cbsdBottomMenu = append(cbsdBottomMenu, &gowid.ContainerWidget{IWidget: mbtn, D: gowid.RenderFixed{}})
 	}
 }
 
@@ -1074,6 +1101,9 @@ func main() {
 		"cyan-nofocus":  gowid.MakePaletteEntry(gowid.ColorCyan, gowid.ColorNone),
 		"cyan-focus":    gowid.MakePaletteEntry(gowid.ColorBlack, gowid.ColorCyan),
 		"red":           gowid.MakePaletteEntry(gowid.ColorRed, gowid.ColorNone),
+		"redgray":       gowid.MakePaletteEntry(gowid.ColorRed, gowid.ColorLightGray),
+		"blackgreen":    gowid.MakePaletteEntry(gowid.ColorBlack, gowid.ColorGreen),
+		"graydgreen":    gowid.MakePaletteEntry(gowid.ColorLightGray, gowid.ColorDarkGreen),
 		"bluebg":        gowid.MakePaletteEntry(gowid.ColorWhite, gowid.ColorCyan),
 		"invred":        gowid.MakePaletteEntry(gowid.ColorBlack, gowid.ColorRed),
 		"streak":        gowid.MakePaletteEntry(gowid.ColorBlack, gowid.ColorRed),
@@ -1085,13 +1115,7 @@ func main() {
 		"magenta":       gowid.MakePaletteEntry(gowid.ColorMagenta, gowid.ColorNone),
 	}
 
-	cbsdUser, err := user.Lookup(cbsdUserName)
-	if err != nil {
-		panic(err)
-	}
-	DB_NAME = "file:" + cbsdUser.HomeDir + "/var/db/local.sqlite?mode=rw"
-
-	cbsdJailsFromDb, err = GetJailsFromDb(DB_NAME)
+	cbsdJailsFromDb, err = GetJailsFromDb(GetCbsdDbConnString(false))
 	if err != nil {
 		panic(err)
 	}
