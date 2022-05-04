@@ -916,6 +916,7 @@ func MakeGridLine(jail *Jail) []gowid.IWidget {
 	style := "gray"
 	line := make([]gowid.IWidget, 0)
 	style = GetJailStyle(jail.Status, jail.Astart)
+	log.Infof("Got Style: " + fmt.Sprintf("%d %d %s", jail.Status, jail.Astart, style) + " for jail " + jail.Jname)
 	line = append(line, GetMenuButton(jail))
 	line = append(line, GetStyledWidget(text.New(jail.Ip4_addr, text.Options{Align: gowid.HAlignMiddle{}}), style))
 	line = append(line, GetStyledWidget(text.New(jail.GetStatusString(), text.Options{Align: gowid.HAlignMiddle{}}), style))
@@ -1090,8 +1091,8 @@ func main() {
 	defer f.Close()
 
 	palette := gowid.Palette{
-		"red-nofocus":   gowid.MakePaletteEntry(gowid.ColorRed, gowid.ColorNone),
-		"red-focus":     gowid.MakePaletteEntry(gowid.ColorBlack, gowid.ColorRed),
+		"red-nofocus":   gowid.MakePaletteEntry(gowid.ColorPurple, gowid.ColorNone),
+		"red-focus":     gowid.MakePaletteEntry(gowid.ColorBlack, gowid.ColorPurple),
 		"green-nofocus": gowid.MakePaletteEntry(gowid.ColorGreen, gowid.ColorNone),
 		"green-focus":   gowid.MakePaletteEntry(gowid.ColorBlack, gowid.ColorGreen),
 		"white-nofocus": gowid.MakePaletteEntry(gowid.ColorWhite, gowid.ColorNone),
