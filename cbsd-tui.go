@@ -43,7 +43,7 @@ type PairString struct {
 	Value string
 }
 
-var USE_DOAS = false
+var USE_DOAS = true
 
 var txtProgramName = "CBSD-TUI"
 var txtHelp = `- To navigate in jails list use 'Up' and 'Down' keys or mouse
@@ -697,7 +697,6 @@ func ExecCommand(title string, command string, args []string) {
 
 func ExecShellCommand(title string, command string, args []string, logfile string) {
 	var cmd *exec.Cmd
-	var errb bytes.Buffer
 	var file *os.File
 	var err error
 	MAXBUF := 1000000
@@ -714,7 +713,6 @@ func ExecShellCommand(title string, command string, args []string, logfile strin
 	outdlgwriter := text.Writer{Widget: txtout, IApp: app}
 	app.RedrawTerminal()
 	cmd = exec.Command(command, args...)
-	cmd.Stderr = &errb
 	cmd.Env = os.Environ()
 	cmd.Env = append(cmd.Env, "NOCOLOR=1")
 	file, err = os.OpenFile(logfile, os.O_TRUNC|os.O_RDWR, 0644)
@@ -750,7 +748,7 @@ func ExecShellCommand(title string, command string, args []string, logfile strin
 			if fsize.Size() > oldfsize {
 				oldfsize = fsize.Size()
 				if fsize.Size() > int64(MAXBUF) {
-					log.Errorf("jstart produced output is too long, it will be truncated")
+					log.Errorf("jstart produced output is too long, it will be truncated\n")
 					break
 				}
 				rbytes, err = file.Read(buf)
@@ -764,7 +762,7 @@ func ExecShellCommand(title string, command string, args []string, logfile strin
 			case <-chanfread:
 				break
 			default:
-				time.Sleep(200 * time.Millisecond)
+				time.Sleep(300 * time.Millisecond)
 			}
 		}
 		file.Close()
@@ -776,8 +774,9 @@ func ExecShellCommand(title string, command string, args []string, logfile strin
 	}
 	err = cmd.Wait()
 	if err != nil {
-		log.Errorf("cmd.Wait() failed with %s %s\n", err, errb.String())
+		log.Errorf("cmd.Wait() failed with %s\n", err)
 	}
+	chanfread <- 1
 }
 
 func StartStopJail(jname string) {
