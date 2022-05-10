@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"os/user"
@@ -79,6 +80,9 @@ var WIDTH = 18
 var HPAD = 2
 var VPAD = 1
 var cbsdJailsFromDb []*Jail
+var shellProgram = "/bin/sh"
+var stdbufProgram = "/usr/bin/stdbuf"
+var logJstart = "/var/log/jstart.log"
 
 //var cbsdActionsMenuText = []string{"Start/Stop", "Create Snapshot", "List Snapshots", "Clone", "Export", "Migrate", "Destroy", "Makeresolv", "Show Config"}
 var cbsdActionsMenuText = []string{"Start/Stop", "Create Snapshot", "List Snapshots", "Edit", "Clone", "Export"}
@@ -693,7 +697,12 @@ func ExecCommand(title string, command string, args []string) {
 
 func ExecShellCommand(title string, command string, args []string, logfile string) {
 	var cmd *exec.Cmd
-	//MAXBUF := 10000000000
+	var errb bytes.Buffer
+	var file *os.File
+	var err error
+	MAXBUF := 1000000
+	buf := make([]byte, MAXBUF)
+	log.Infof("Trying to start %s command with %v arguments", command, args)
 	txtout := text.New(title, text.Options{Align: gowid.HAlignLeft{}})
 	outdlg := CreateActionsLogDialog(txtout)
 	if cbsdActionsDialog != nil {
@@ -705,43 +714,78 @@ func ExecShellCommand(title string, command string, args []string, logfile strin
 	outdlgwriter := text.Writer{Widget: txtout, IApp: app}
 	app.RedrawTerminal()
 	cmd = exec.Command(command, args...)
+	cmd.Stderr = &errb
 	cmd.Env = os.Environ()
 	cmd.Env = append(cmd.Env, "NOCOLOR=1")
-	file, err := os.Open(logfile)
-	if err != nil {
-		log.Errorf("Cannot open file %s: %s", logfile, err)
+	file, err = os.OpenFile(logfile, os.O_TRUNC|os.O_RDWR, 0644)
+	if os.IsNotExist(err) {
+		file, err = os.OpenFile(logfile, os.O_CREATE|os.O_RDWR, 0644)
+		if err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
-	defer file.Close()
-	scanner := bufio.NewScanner(file)
-	//scanner.Buffer(make([]byte, MAXBUF), MAXBUF)
-	var wg sync.WaitGroup
-	wg.Add(1)
+	file.Close()
+	chanfread := make(chan int)
 
 	go func() {
-		for scanner.Scan() {
-			logtxt := scanner.Text()
-			logtxt = txtout.Content().String() + "\n" + logtxt
-			outdlgwriter.Write([]byte(logtxt))
-			app.RedrawTerminal()
+		var rbytes int
+		file, err = os.OpenFile(logfile, os.O_RDONLY|os.O_SYNC, 0644)
+		if err != nil {
+			log.Fatal(err)
 		}
-		wg.Done()
+		fsize, err := file.Stat()
+		if err != nil {
+			log.Fatal(err)
+		}
+		oldfsize := fsize.Size()
+		for true {
+			fsize, err = file.Stat()
+			if err != nil {
+				log.Fatal(err)
+			}
+			if fsize.Size() > oldfsize {
+				oldfsize = fsize.Size()
+				if fsize.Size() > int64(MAXBUF) {
+					log.Errorf("jstart produced output is too long, it will be truncated")
+					break
+				}
+				rbytes, err = file.Read(buf)
+				if rbytes > 0 {
+					logtxt := txtout.Content().String() + string(buf[:rbytes]) + "\n"
+					outdlgwriter.Write([]byte(logtxt))
+					app.RedrawTerminal()
+				}
+			}
+			select {
+			case <-chanfread:
+				break
+			default:
+				time.Sleep(200 * time.Millisecond)
+			}
+		}
+		file.Close()
 	}()
+
 	err = cmd.Start()
 	if err != nil {
 		log.Errorf("cmd.Start() failed with %s\n", err)
 	}
 	err = cmd.Wait()
 	if err != nil {
-		log.Errorf("cmd.Wait() failed with %s\n", err)
+		log.Errorf("cmd.Wait() failed with %s %s\n", err, errb.String())
 	}
-	wg.Wait()
 }
 
 func StartStopJail(jname string) {
 	txtheader := ""
-	var cmd string
-	shell := "/bin/sh"
-	logfile := "/var/log/jstart.log"
+	//var cmd string
+	//stdbuf := "/usr/bin/stdbuf"
+	//shell := "/bin/sh"
+	//logJstart := "/var/log/jstart.log"
 	var args []string
 	var command string
 
@@ -751,7 +795,7 @@ func StartStopJail(jname string) {
 		return
 	}
 	if jail.IsRunning() {
-		if cbsdJailConsoleActive == jail.Jname {
+		if cbsdJailConsoleActive == jname {
 			SendTerminalCommand("exit")
 			cbsdJailConsoleActive = ""
 		}
@@ -761,7 +805,7 @@ func StartStopJail(jname string) {
 		}
 		args = append(args, "jstop")
 		args = append(args, "inter=1")
-		args = append(args, "jname="+jail.Jname)
+		args = append(args, "jname="+jname)
 		if USE_DOAS {
 			command = doasProgram
 		} else {
@@ -779,26 +823,50 @@ func StartStopJail(jname string) {
 			args = append(args, "quiet=1") // Temporary workaround for lock reading stdout when jail service use stderr
 			args = append(args, "jname="+jail.Name)
 		*/
-		command = shell
-		cmd = ""
-		if USE_DOAS {
-			cmd += doasProgram
-			cmd += " "
-			cmd += cbsdProgram
-		} else {
-			cmd += cbsdProgram
+		command = shellProgram
+		script, err := CreateScriptStartJail(jname)
+		if err != nil {
+			log.Errorf("Cannot create jstart script: %w", err)
+			if script != "" {
+				os.Remove(script)
+			}
+			return
 		}
-		cmd += " jstart"
-		cmd += " inter=1"
-		//		cmd += " quiet=1" // Temporary workaround for lock reading stdout when jail service use stderr
-		cmd += " jname=" + jail.Jname
-		cmd += ">"
-		cmd += logfile
-		args = append(args, "-c")
-		args = append(args, cmd)
-		ExecShellCommand(txtheader, command, args, logfile)
+		defer os.Remove(script)
+		args = append(args, script)
+		ExecShellCommand(txtheader, command, args, logJstart)
 	}
 	UpdateJailStatus(jail)
+}
+
+func CreateScriptStartJail(jname string) (string, error) {
+	cmd := ""
+	file, err := ioutil.TempFile("", "jail_start_")
+	if err != nil {
+		return "", err
+	}
+	file.WriteString("#!" + shellProgram + "\n")
+	cmd += stdbufProgram
+	cmd += " -o"
+	//cmd += " 0 "
+	cmd += " L "
+	if USE_DOAS {
+		cmd += doasProgram
+		cmd += " "
+		cmd += cbsdProgram
+	} else {
+		cmd += cbsdProgram
+	}
+	cmd += " jstart"
+	cmd += " inter=1"
+	cmd += " jname=" + jname
+	cmd += " > "
+	cmd += logJstart
+	_, err = file.WriteString(cmd + "\n")
+	if err != nil {
+		return file.Name(), err
+	}
+	return file.Name(), nil
 }
 
 func GetJailByName(jname string) *Jail {
@@ -916,7 +984,7 @@ func MakeGridLine(jail *Jail) []gowid.IWidget {
 	style := "gray"
 	line := make([]gowid.IWidget, 0)
 	style = GetJailStyle(jail.Status, jail.Astart)
-	log.Infof("Got Style: " + fmt.Sprintf("%d %d %s", jail.Status, jail.Astart, style) + " for jail " + jail.Jname)
+	//log.Infof("Got Style: " + fmt.Sprintf("%d %d %s", jail.Status, jail.Astart, style) + " for jail " + jail.Jname)
 	line = append(line, GetMenuButton(jail))
 	line = append(line, GetStyledWidget(text.New(jail.Ip4_addr, text.Options{Align: gowid.HAlignMiddle{}}), style))
 	line = append(line, GetStyledWidget(text.New(jail.GetStatusString(), text.Options{Align: gowid.HAlignMiddle{}}), style))
