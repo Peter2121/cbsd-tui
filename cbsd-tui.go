@@ -43,7 +43,7 @@ type PairString struct {
 	Value string
 }
 
-var USE_DOAS = true
+var USE_DOAS = false
 
 var txtProgramName = "CBSD-TUI"
 var txtHelp = `- To navigate in jails list use 'Up' and 'Down' keys or mouse
