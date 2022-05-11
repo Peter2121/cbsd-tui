@@ -361,7 +361,7 @@ func MakeEditJailDialog(jname string) *dialog.Widget {
 func MakeCbsdActionsMenu() map[string][]gowid.IWidget {
 	actions := make(map[string][]gowid.IWidget, 0)
 	for _, j := range cbsdJailsFromDb {
-		actions[j.Jname] = MakeCbsdJailActionsMenu(j.Jname)
+		actions[j.GetName()] = MakeCbsdJailActionsMenu(j.GetName())
 	}
 	return actions
 }
@@ -440,7 +440,7 @@ func RunMenuAction(action string) {
 
 func GetSelectedJailName() string {
 	ifocus := cbsdListJails.Walker().Focus()
-	jname := cbsdJailsFromDb[int(ifocus.(list.ListPos))-1].Jname
+	jname := cbsdJailsFromDb[int(ifocus.(list.ListPos))-1].GetName()
 	return jname
 }
 
@@ -605,7 +605,7 @@ func UpdateJailLine(jail *Jail) {
 		btn := line[0].(*keypress.Widget).SubWidget().(*cellmod.Widget).SubWidget().(*button.Widget)
 		txt := btn.SubWidget().(*styled.Widget).SubWidget().(*text.Widget)
 		str := txt.Content().String()
-		if str != jail.Jname {
+		if str != jail.GetName() {
 			continue
 		}
 		style := GetJailStyle(jail.Status, jail.Astart)
@@ -620,7 +620,7 @@ func UpdateJailLine(jail *Jail) {
 }
 
 func GetMenuButton(jail *Jail) *keypress.Widget {
-	btxt := text.New(jail.Jname, text.Options{Align: gowid.HAlignMiddle{}})
+	btxt := text.New(jail.GetName(), text.Options{Align: gowid.HAlignMiddle{}})
 	style := GetJailStyle(jail.Status, jail.Astart)
 	txts := GetStyledWidget(btxt, style)
 	btnnew := button.New(txts, button.Options{
@@ -871,7 +871,7 @@ func CreateScriptStartJail(jname string) (string, error) {
 func GetJailByName(jname string) *Jail {
 	var jail *Jail = nil
 	for _, j := range cbsdJailsFromDb {
-		if j.Jname == jname {
+		if j.GetName() == jname {
 			jail = j
 			break
 		}
@@ -983,7 +983,7 @@ func MakeGridLine(jail *Jail) []gowid.IWidget {
 	style := "gray"
 	line := make([]gowid.IWidget, 0)
 	style = GetJailStyle(jail.Status, jail.Astart)
-	//log.Infof("Got Style: " + fmt.Sprintf("%d %d %s", jail.Status, jail.Astart, style) + " for jail " + jail.Jname)
+	//log.Infof("Got Style: " + fmt.Sprintf("%d %d %s", jail.Status, jail.Astart, style) + " for jail " + jail.GetName())
 	line = append(line, GetMenuButton(jail))
 	line = append(line, GetStyledWidget(text.New(jail.Ip4_addr, text.Options{Align: gowid.HAlignMiddle{}}), style))
 	line = append(line, GetStyledWidget(text.New(jail.GetStatusString(), text.Options{Align: gowid.HAlignMiddle{}}), style))

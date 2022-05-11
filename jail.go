@@ -17,6 +17,10 @@ type Jail struct {
 var strStatus = []string{"Off", "On", "Slave", "Unknown(3)", "Unknown(4)", "Unknown(5)"}
 var strAutoStart = []string{"Off", "On"}
 
+func (jail *Jail) GetName() string {
+	return jail.Jname
+}
+
 func (jail *Jail) IsRunning() bool {
 	if jail.Status == 1 {
 		return true
