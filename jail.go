@@ -21,6 +21,22 @@ func (jail *Jail) GetName() string {
 	return jail.Jname
 }
 
+func (jail *Jail) GetAddr() string {
+	return jail.Ip4_addr
+}
+
+func (jail *Jail) SetAddr(addr string) {
+	jail.Ip4_addr = addr
+}
+
+func (jail *Jail) GetVer() string {
+	return jail.Ver
+}
+
+func (jail *Jail) SetVer(ver string) {
+	jail.Ver = ver
+}
+
 func (jail *Jail) IsRunning() bool {
 	if jail.Status == 1 {
 		return true

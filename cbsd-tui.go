@@ -302,10 +302,10 @@ func MakeEditJailDialog(jname string) *dialog.Widget {
 		gowid.RenderFixed{},
 	)
 
-	ednewversion := edit.New(edit.Options{Caption: "Version: ", Text: jail.Ver})
+	ednewversion := edit.New(edit.Options{Caption: "Version: ", Text: jail.GetVer()})
 	ednewversionst := styled.New(ednewversion, gowid.MakePaletteRef("green"))
 	if !jail.IsRunning() {
-		ednewip = edit.New(edit.Options{Caption: "IP address: ", Text: jail.Ip4_addr})
+		ednewip = edit.New(edit.Options{Caption: "IP address: ", Text: jail.GetAddr()})
 		ednewipst = styled.New(ednewip, gowid.MakePaletteRef("green"))
 		edlines = pile.New([]gowid.IContainerWidget{
 			&gowid.ContainerWidget{IWidget: htxtst, D: gowid.RenderFlow{}},
@@ -326,13 +326,13 @@ func MakeEditJailDialog(jname string) *dialog.Widget {
 			cbsdEditJailDialog.Close(app)
 			if ednewip != nil {
 				if (cbastart.IsChecked() != jail.GetAutoStartBool()) ||
-					(ednewversion.Text() != jail.Ver) ||
-					(ednewip.Text() != jail.Ip4_addr) {
+					(ednewversion.Text() != jail.GetVer()) ||
+					(ednewip.Text() != jail.GetAddr()) {
 					DoEditJail(jname, cbastart.IsChecked(), ednewversion.Text(), ednewip.Text())
 				}
 			} else {
 				if (cbastart.IsChecked() != jail.GetAutoStartBool()) ||
-					(ednewversion.Text() != jail.Ver) {
+					(ednewversion.Text() != jail.GetVer()) {
 					DoEditJail(jname, cbastart.IsChecked(), ednewversion.Text(), "")
 				}
 			}
@@ -475,9 +475,9 @@ func DoEditJail(jname string, astart bool, version string, ip string) {
 	} else {
 		jail.Astart = 0
 	}
-	jail.Ver = version
+	jail.SetVer(version)
 	if ip != "" {
-		jail.Ip4_addr = ip
+		jail.SetAddr(ip)
 	}
 	_, err := jail.PutJailToDb(GetCbsdDbConnString(true))
 	if err != nil {
@@ -612,10 +612,10 @@ func UpdateJailLine(jail *Jail) {
 		//	var cbsdJlsHeader = []string{"NAME", "IP4_ADDRESS", "STATUS", "AUTOSTART", "VERSION"}
 
 		line[0] = GetMenuButton(jail)
-		line[1] = GetStyledWidget(text.New(jail.Ip4_addr, text.Options{Align: gowid.HAlignMiddle{}}), style)
+		line[1] = GetStyledWidget(text.New(jail.GetAddr(), text.Options{Align: gowid.HAlignMiddle{}}), style)
 		line[2] = GetStyledWidget(text.New(jail.GetStatusString(), text.Options{Align: gowid.HAlignMiddle{}}), style)
 		line[3] = GetStyledWidget(text.New(jail.GetAutoStartString(), text.Options{Align: gowid.HAlignMiddle{}}), style)
-		line[4] = GetStyledWidget(text.New(jail.Ver, text.Options{Align: gowid.HAlignMiddle{}}), style)
+		line[4] = GetStyledWidget(text.New(jail.GetVer(), text.Options{Align: gowid.HAlignMiddle{}}), style)
 	}
 }
 
@@ -985,10 +985,10 @@ func MakeGridLine(jail *Jail) []gowid.IWidget {
 	style = GetJailStyle(jail.Status, jail.Astart)
 	//log.Infof("Got Style: " + fmt.Sprintf("%d %d %s", jail.Status, jail.Astart, style) + " for jail " + jail.GetName())
 	line = append(line, GetMenuButton(jail))
-	line = append(line, GetStyledWidget(text.New(jail.Ip4_addr, text.Options{Align: gowid.HAlignMiddle{}}), style))
+	line = append(line, GetStyledWidget(text.New(jail.GetAddr(), text.Options{Align: gowid.HAlignMiddle{}}), style))
 	line = append(line, GetStyledWidget(text.New(jail.GetStatusString(), text.Options{Align: gowid.HAlignMiddle{}}), style))
 	line = append(line, GetStyledWidget(text.New(jail.GetAutoStartString(), text.Options{Align: gowid.HAlignMiddle{}}), style))
-	line = append(line, GetStyledWidget(text.New(jail.Ver, text.Options{Align: gowid.HAlignMiddle{}}), style))
+	line = append(line, GetStyledWidget(text.New(jail.GetVer(), text.Options{Align: gowid.HAlignMiddle{}}), style))
 	return line
 }
 
