@@ -16,9 +16,18 @@ type Jail struct {
 
 var strStatus = []string{"Off", "On", "Slave", "Unknown(3)", "Unknown(4)", "Unknown(5)"}
 var strAutoStart = []string{"Off", "On"}
+var strHeaderTitles = []string{"NAME", "IP4_ADDRESS", "STATUS", "AUTOSTART", "VERSION"}
+
+func (jail *Jail) GetHeaderTitles() []string {
+	return strHeaderTitles
+}
 
 func (jail *Jail) GetName() string {
 	return jail.Jname
+}
+
+func (jail *Jail) GetStatus() int {
+	return jail.Status
 }
 
 func (jail *Jail) GetAddr() string {
@@ -27,6 +36,14 @@ func (jail *Jail) GetAddr() string {
 
 func (jail *Jail) SetAddr(addr string) {
 	jail.Ip4_addr = addr
+}
+
+func (jail *Jail) GetAstart() int {
+	return jail.Astart
+}
+
+func (jail *Jail) SetAstart(as int) {
+	jail.Astart = as
 }
 
 func (jail *Jail) GetVer() string {

@@ -59,7 +59,9 @@ var cbsdProgram = "/usr/local/bin/cbsd"
 var cbsdCommandJailLogin = "jlogin"
 var cbsdArgJailName = "jname"
 var cbsdUserName = "cbsd"
-var cbsdJlsHeader = []string{"NAME", "IP4_ADDRESS", "STATUS", "AUTOSTART", "VERSION"}
+
+//var cbsdJlsHeader = []string{"NAME", "IP4_ADDRESS", "STATUS", "AUTOSTART", "VERSION"}
+//var cbsdJlsHeader []string
 
 var pwProgram = "/usr/sbin/pw"
 
@@ -67,6 +69,7 @@ var cbsdUser *user.User = nil
 
 //var cbsdDatabaseName = "file:/usr/local/jails/cbsd/var/db/local.sqlite?mode=ro"
 var cbsdDatabaseName = "/var/db/local.sqlite"
+var logFileName = "/var/log/cbsd-tui.log"
 
 var cbsdListHeader []gowid.IWidget
 var cbsdListLines [][]gowid.IWidget
@@ -471,9 +474,9 @@ func DoEditJail(jname string, astart bool, version string, ip string) {
 		return
 	}
 	if astart {
-		jail.Astart = 1
+		jail.SetAstart(1)
 	} else {
-		jail.Astart = 0
+		jail.SetAstart(0)
 	}
 	jail.SetVer(version)
 	if ip != "" {
@@ -608,7 +611,7 @@ func UpdateJailLine(jail *Jail) {
 		if str != jail.GetName() {
 			continue
 		}
-		style := GetJailStyle(jail.Status, jail.Astart)
+		style := GetJailStyle(jail.GetStatus(), jail.GetAstart())
 		//	var cbsdJlsHeader = []string{"NAME", "IP4_ADDRESS", "STATUS", "AUTOSTART", "VERSION"}
 
 		line[0] = GetMenuButton(jail)
@@ -621,7 +624,7 @@ func UpdateJailLine(jail *Jail) {
 
 func GetMenuButton(jail *Jail) *keypress.Widget {
 	btxt := text.New(jail.GetName(), text.Options{Align: gowid.HAlignMiddle{}})
-	style := GetJailStyle(jail.Status, jail.Astart)
+	style := GetJailStyle(jail.GetStatus(), jail.GetAstart())
 	txts := GetStyledWidget(btxt, style)
 	btnnew := button.New(txts, button.Options{
 		Decoration: button.BareDecoration,
@@ -913,8 +916,7 @@ func SendTerminalCommand(cmd string) {
 
 func GetJailsListHeader() []gowid.IWidget {
 	header := make([]gowid.IWidget, 0)
-	//found := false
-	for _, h := range cbsdJlsHeader {
+	for _, h := range (&Jail{}).GetHeaderTitles() {
 		htext := text.New(h, text.Options{Align: gowid.HAlignMiddle{}})
 		header = append(header, GetStyledWidget(htext, "white"))
 	}
@@ -982,8 +984,7 @@ func JailListButtonCallBack(jname string, key gowid.IKey) {
 func MakeGridLine(jail *Jail) []gowid.IWidget {
 	style := "gray"
 	line := make([]gowid.IWidget, 0)
-	style = GetJailStyle(jail.Status, jail.Astart)
-	//log.Infof("Got Style: " + fmt.Sprintf("%d %d %s", jail.Status, jail.Astart, style) + " for jail " + jail.GetName())
+	style = GetJailStyle(jail.GetStatus(), jail.GetAstart())
 	line = append(line, GetMenuButton(jail))
 	line = append(line, GetStyledWidget(text.New(jail.GetAddr(), text.Options{Align: gowid.HAlignMiddle{}}), style))
 	line = append(line, GetStyledWidget(text.New(jail.GetStatusString(), text.Options{Align: gowid.HAlignMiddle{}}), style))
@@ -1000,20 +1001,6 @@ func MakeJailsLines() [][]gowid.IWidget {
 	}
 	return lines
 }
-
-/*
-func GetCbsdJlsCommandArgs() []string {
-	cmd_args := make([]string, 0)
-	cmd_args = append(cmd_args, "jls")
-	cmd_args = append(cmd_args, "header=0")
-	arg_display := "display="
-	for _, f := range cbsdJlsDisplay {
-		arg_display += f + ","
-	}
-	cmd_args = append(cmd_args, arg_display)
-	return cmd_args
-}
-*/
 
 func GetNodeName() string {
 	nname := ""
@@ -1060,7 +1047,7 @@ func ExitOnErr(err error) {
 }
 
 func (h handler) UnhandledInput(app gowid.IApp, ev interface{}) bool {
-	log.Infof("Handler " + fmt.Sprintf("%T", ev))
+	//log.Infof("Handler " + fmt.Sprintf("%T", ev))
 	handled := false
 	evk, ok := ev.(*tcell.EventKey)
 	if ok {
@@ -1154,9 +1141,6 @@ func MakeBottomMenu() {
 func main() {
 	var err error
 
-	f := RedirectLogger("/var/log/cbsd-tui.log")
-	defer f.Close()
-
 	palette := gowid.Palette{
 		"red-nofocus":   gowid.MakePaletteEntry(gowid.ColorPurple, gowid.ColorNone),
 		"red-focus":     gowid.MakePaletteEntry(gowid.ColorBlack, gowid.ColorPurple),
@@ -1188,6 +1172,15 @@ func main() {
 		panic(err)
 	}
 
+	if len(cbsdJailsFromDb) < 1 {
+		log.Errorf("Cannot find jails in database %s", cbsdDatabaseName)
+		return
+	}
+
+	f := RedirectLogger(logFileName)
+	defer f.Close()
+
+	//cbsdJlsHeader = cbsdJailsFromDb[0].GetHeaderTitles()
 	cbsdListLines = MakeJailsLines()
 	cbsdListHeader = GetJailsListHeader()
 	cbsdActionsMenu = MakeCbsdActionsMenu()
