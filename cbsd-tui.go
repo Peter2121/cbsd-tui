@@ -60,9 +60,6 @@ var cbsdCommandJailLogin = "jlogin"
 var cbsdArgJailName = "jname"
 var cbsdUserName = "cbsd"
 
-//var cbsdJlsHeader = []string{"NAME", "IP4_ADDRESS", "STATUS", "AUTOSTART", "VERSION"}
-//var cbsdJlsHeader []string
-
 var pwProgram = "/usr/sbin/pw"
 
 var cbsdUser *user.User = nil
@@ -87,12 +84,6 @@ var shellProgram = "/bin/sh"
 var stdbufProgram = "/usr/bin/stdbuf"
 var logJstart = "/var/log/jstart.log"
 
-//var cbsdActionsMenuText = []string{"Start/Stop", "Create Snapshot", "List Snapshots", "Clone", "Export", "Migrate", "Destroy", "Makeresolv", "Show Config"}
-var cbsdActionsMenuText = []string{"Start/Stop", "Create Snapshot", "List Snapshots", "Edit", "Clone", "Export"}
-
-//var cbsdBottomMenuText = []string{"[F1]Help ", "[F2]Actions Menu ", "[F4]Edit ", "[F5]Clone ", "[F6]Export ", "[F7]Create Snapshot ", "[F10]Exit ", "[F11]List Snapshots ", "[F12]Start/Stop"}
-var cbsdBottomMenuText1 = []string{" 1", " 2", " 4", " 5", " 6", " 7", " 10", " 11", " 12"}
-var cbsdBottomMenuText2 = []string{"Help ", "Actions Menu ", "Edit ", "Clone ", "Export ", "Create Snapshot ", "Exit ", "List Snapshots ", "Start/Stop"}
 var cbsdActionsMenu map[string][]gowid.IWidget
 var cbsdActionsDialog *dialog.Widget
 var cbsdCloneJailDialog *dialog.Widget
@@ -371,7 +362,7 @@ func MakeCbsdActionsMenu() map[string][]gowid.IWidget {
 
 func MakeCbsdJailActionsMenu(jname string) []gowid.IWidget {
 	menu := make([]gowid.IWidget, 0)
-	for _, m := range cbsdActionsMenuText {
+	for _, m := range (&Jail{}).GetActionsMenuItems() {
 		mtext := text.New(m, text.Options{Align: gowid.HAlignLeft{}})
 		mtexts := GetStyledWidget(mtext, "white")
 		mbtn := button.New(mtexts, button.Options{Decoration: button.BareDecoration})
@@ -387,21 +378,20 @@ func MakeCbsdJailActionsMenu(jname string) []gowid.IWidget {
 
 func RunActionOnJail(action string, jname string) {
 	log.Infof("Action: " + action + " on jail: " + jname)
-	//var cbsdActionsMenuText = []string{"Start/Stop", "Create Snapshot", "List Snapshots", "Edit", "Clone", "Export"}
 
 	switch action {
 	case "Start":
 	case "Stop":
 		StartStopJail(jname)
-	case cbsdActionsMenuText[1]: // "Create Snapshot"
+	case (&Jail{}).GetActionsMenuItems()[1]: // "Create Snapshot"
 		SnapshotJail(jname)
-	case cbsdActionsMenuText[2]: // "List Snapshots"
+	case (&Jail{}).GetActionsMenuItems()[2]: // "List Snapshots"
 		ListSnapshotsJail(jname)
-	case cbsdActionsMenuText[3]: // "Edit"
+	case (&Jail{}).GetActionsMenuItems()[3]: // "Edit"
 		EditJail(jname)
-	case cbsdActionsMenuText[4]: // "Clone"
+	case (&Jail{}).GetActionsMenuItems()[4]: // "Clone"
 		CloneJail(jname)
-	case cbsdActionsMenuText[5]: // "Export"
+	case (&Jail{}).GetActionsMenuItems()[5]: // "Export"
 		ExportJail(jname)
 	}
 }
@@ -412,11 +402,11 @@ func RunMenuAction(action string) {
 	switch action {
 	// "[F1]Help ",            "[F2]Actions Menu ", "[F4]Edit ",            "[F5]Clone ",      "[F6]Export ",
 	// "[F7]Create Snapshot ", "[F10]Exit ",        "[F11]List Snapshots ", "[F12]Start/Stop"
-	case cbsdBottomMenuText2[0]: // Help
+	case (&Jail{}).GetBottomMenuText2()[0]: // Help
 		helpdialog := CreateHelpDialog()
 		helpdialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.6}, app)
 		return
-	case cbsdBottomMenuText2[6]: // Exit
+	case (&Jail{}).GetBottomMenuText2()[6]: // Exit
 		app.Quit()
 	}
 
@@ -424,19 +414,19 @@ func RunMenuAction(action string) {
 	log.Infof("JailName: " + jname)
 
 	switch action {
-	case cbsdBottomMenuText2[1]: // Actions Menu
+	case (&Jail{}).GetBottomMenuText2()[1]: // Actions Menu
 		OpenJailActionsMenu(jname)
-	case cbsdBottomMenuText2[2]: // Edit
+	case (&Jail{}).GetBottomMenuText2()[2]: // Edit
 		EditJail(jname)
-	case cbsdBottomMenuText2[3]: // Clone
+	case (&Jail{}).GetBottomMenuText2()[3]: // Clone
 		CloneJail(jname)
-	case cbsdBottomMenuText2[4]: // Export
+	case (&Jail{}).GetBottomMenuText2()[4]: // Export
 		ExportJail(jname)
-	case cbsdBottomMenuText2[5]: // Create Snapshot
+	case (&Jail{}).GetBottomMenuText2()[5]: // Create Snapshot
 		SnapshotJail(jname)
-	case cbsdBottomMenuText2[7]: // List Snapshots
+	case (&Jail{}).GetBottomMenuText2()[7]: // List Snapshots
 		ListSnapshotsJail(jname)
-	case cbsdBottomMenuText2[8]: // Start/Stop
+	case (&Jail{}).GetBottomMenuText2()[8]: // Start/Stop
 		StartStopJail(jname)
 	}
 }
@@ -1074,21 +1064,21 @@ func (h handler) UnhandledInput(app gowid.IApp, ev interface{}) bool {
 				cbsdWidgets.SetFocus(app, next)
 			}
 		case tcell.KeyF1:
-			RunMenuAction(cbsdBottomMenuText2[0]) // Help
+			RunMenuAction((&Jail{}).GetBottomMenuText2()[0]) // Help
 		case tcell.KeyF2:
-			RunMenuAction(cbsdBottomMenuText2[1]) // Actions Menu
+			RunMenuAction((&Jail{}).GetBottomMenuText2()[1]) // Actions Menu
 		case tcell.KeyF4:
-			RunMenuAction(cbsdBottomMenuText2[2]) // Edit
+			RunMenuAction((&Jail{}).GetBottomMenuText2()[2]) // Edit
 		case tcell.KeyF5:
-			RunMenuAction(cbsdBottomMenuText2[3]) // Clone
+			RunMenuAction((&Jail{}).GetBottomMenuText2()[3]) // Clone
 		case tcell.KeyF6:
-			RunMenuAction(cbsdBottomMenuText2[4]) // Export
+			RunMenuAction((&Jail{}).GetBottomMenuText2()[4]) // Export
 		case tcell.KeyF7:
-			RunMenuAction(cbsdBottomMenuText2[5]) // Create Snapshot
+			RunMenuAction((&Jail{}).GetBottomMenuText2()[5]) // Create Snapshot
 		case tcell.KeyF11:
-			RunMenuAction(cbsdBottomMenuText2[7]) // List Snapshots
+			RunMenuAction((&Jail{}).GetBottomMenuText2()[7]) // List Snapshots
 		case tcell.KeyF12:
-			RunMenuAction(cbsdBottomMenuText2[8]) // Start/Stop
+			RunMenuAction((&Jail{}).GetBottomMenuText2()[8]) // Start/Stop
 		default:
 			handled = false
 		}
@@ -1118,8 +1108,8 @@ func GetStyledWidget(w gowid.IWidget, color string) *styled.Widget {
 
 func MakeBottomMenu() {
 	cbsdBottomMenu = make([]gowid.IContainerWidget, 0)
-	for i, m := range cbsdBottomMenuText2 {
-		mtext1 := text.New(cbsdBottomMenuText1[i], text.Options{Align: gowid.HAlignLeft{}})
+	for i, m := range (&Jail{}).GetBottomMenuText2() {
+		mtext1 := text.New((&Jail{}).GetBottomMenuText1()[i], text.Options{Align: gowid.HAlignLeft{}})
 		mtext1st := styled.New(mtext1, gowid.MakePaletteRef("blackgreen"))
 		mtext2 := text.New(m, text.Options{Align: gowid.HAlignLeft{}})
 		mtext2st := styled.New(mtext2, gowid.MakePaletteRef("graydgreen"))

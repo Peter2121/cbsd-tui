@@ -17,9 +17,27 @@ type Jail struct {
 var strStatus = []string{"Off", "On", "Slave", "Unknown(3)", "Unknown(4)", "Unknown(5)"}
 var strAutoStart = []string{"Off", "On"}
 var strHeaderTitles = []string{"NAME", "IP4_ADDRESS", "STATUS", "AUTOSTART", "VERSION"}
+var strActionsMenuItems = []string{"Start/Stop", "Create Snapshot", "List Snapshots", "Edit", "Clone", "Export"}
+
+//var cbsdActionsMenuText = []string{"Start/Stop", "Create Snapshot", "List Snapshots", "Clone", "Export", "Migrate", "Destroy", "Makeresolv", "Show Config"}
+
+var strBottomMenuText1 = []string{" 1", " 2", " 4", " 5", " 6", " 7", " 10", " 11", " 12"}
+var strBottomMenuText2 = []string{"Help ", "Actions Menu ", "Edit ", "Clone ", "Export ", "Create Snapshot ", "Exit ", "List Snapshots ", "Start/Stop"}
+
+func (jail *Jail) GetBottomMenuText1() []string {
+	return strBottomMenuText1
+}
+
+func (jail *Jail) GetBottomMenuText2() []string {
+	return strBottomMenuText2
+}
 
 func (jail *Jail) GetHeaderTitles() []string {
 	return strHeaderTitles
+}
+
+func (jail *Jail) GetActionsMenuItems() []string {
+	return strActionsMenuItems
 }
 
 func (jail *Jail) GetName() string {
