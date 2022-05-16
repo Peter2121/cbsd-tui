@@ -12,6 +12,7 @@ type Jail struct {
 	Status   int
 	Astart   int
 	Ver      string
+	params   map[string]string
 }
 
 var strStatus = []string{"Off", "On", "Slave", "Unknown(3)", "Unknown(4)", "Unknown(5)"}
@@ -122,6 +123,20 @@ func (jail *Jail) GetStatusCode(status string) int {
 	return -1
 }
 
+func (jail *Jail) GetParam(pn string) string {
+	return jail.params[pn]
+}
+
+func (jail *Jail) SetParam(pn string, pv string) bool {
+	jail.params[pn] = pv
+	if v, found := jail.params[pn]; found {
+		if v == pv {
+			return true
+		}
+	}
+	return false
+}
+
 func New() *Jail {
 	res := &Jail{
 		Jname:    "",
@@ -129,6 +144,7 @@ func New() *Jail {
 		Status:   0,
 		Astart:   0,
 		Ver:      "",
+		params:   make(map[string]string),
 	}
 	return res
 }
@@ -140,6 +156,7 @@ func NewJail(jname string, ip4_addr string, status int, astart int, ver string) 
 		Status:   status,
 		Astart:   astart,
 		Ver:      ver,
+		params:   make(map[string]string),
 	}
 	return res
 }
