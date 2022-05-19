@@ -230,6 +230,65 @@ func (jail *Jail) GetJailFromDb(dbname string, jname string) (bool, error) {
 	return true, nil
 }
 
+func (jail *Jail) GetJailFromDbFull(dbname string, jname string) (bool, error) {
+	if jail.Jname != jname {
+		result, err := jail.GetJailFromDb(dbname, jname)
+		if err != nil {
+			return false, err
+		}
+		if !result {
+			return result, nil
+		}
+	}
+	result := false
+	db, err := sql.Open("sqlite3", dbname)
+	if err != nil {
+		return false, err
+	}
+	defer db.Close()
+
+	rows, err := db.Query("SELECT * FROM jails WHERE jname = ?", jname)
+	if err != nil {
+		return false, err
+	}
+
+	cols, err := rows.Columns()
+	if err != nil {
+		return false, err
+	}
+
+	rawResult := make([][]byte, len(cols))
+	//result := make([]string, len(cols))
+
+	dest := make([]interface{}, len(cols))
+	for i := range rawResult {
+		dest[i] = &rawResult[i]
+	}
+
+	for rows.Next() {
+		err = rows.Scan(dest...)
+		if err != nil {
+			return false, err
+		}
+
+		for i, raw := range rawResult {
+			/*
+			   if raw == nil {
+			       result[i] = "\\N"
+			   } else {
+			       result[i] = string(raw)
+			   }
+			*/
+			if raw != nil {
+				jail.params[cols[i]] = string(raw)
+				result = true
+			}
+		}
+		//fmt.Printf("%#v\n", result)
+	}
+	return result, nil
+}
+
 func (jail *Jail) UpdateJailFromDb(dbname string) (bool, error) {
 	db, err := sql.Open("sqlite3", dbname)
 	if err != nil {

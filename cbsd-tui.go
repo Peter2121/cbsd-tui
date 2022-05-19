@@ -43,7 +43,7 @@ type PairString struct {
 	Value string
 }
 
-var USE_DOAS = false
+var USE_DOAS = true
 
 var txtProgramName = "CBSD-TUI"
 var txtHelp = `- To navigate in jails list use 'Up' and 'Down' keys or mouse
@@ -435,6 +435,18 @@ func GetSelectedJailName() string {
 	ifocus := cbsdListJails.Walker().Focus()
 	jname := cbsdJailsFromDb[int(ifocus.(list.ListPos))-1].GetName()
 	return jname
+}
+
+func ViewJail() {
+	jname := GetSelectedJailName()
+	jail := GetJailByName(jname)
+	result, err := jail.GetJailFromDbFull(GetCbsdDbConnString(false), jname)
+	if err != nil {
+		panic(err)
+	}
+	if !result {
+		panic(err)
+	}
 }
 
 func DoSnapshotJail(jname string, snapname string) {
@@ -1067,6 +1079,9 @@ func (h handler) UnhandledInput(app gowid.IApp, ev interface{}) bool {
 			RunMenuAction((&Jail{}).GetBottomMenuText2()[0]) // Help
 		case tcell.KeyF2:
 			RunMenuAction((&Jail{}).GetBottomMenuText2()[1]) // Actions Menu
+		case tcell.KeyF3:
+			ViewJail()
+			//RunMenuAction((&Jail{}).GetBottomMenuText2()[2]) // Edit
 		case tcell.KeyF4:
 			RunMenuAction((&Jail{}).GetBottomMenuText2()[2]) // Edit
 		case tcell.KeyF5:
