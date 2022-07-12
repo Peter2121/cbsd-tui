@@ -11,9 +11,11 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/gcla/gowid"
 	"github.com/gcla/gowid/vim"
+	"github.com/gcla/gowid/widgets/boxadapter"
 	"github.com/gcla/gowid/widgets/button"
 	"github.com/gcla/gowid/widgets/cellmod"
 	"github.com/gcla/gowid/widgets/checkbox"
@@ -43,7 +45,7 @@ type PairString struct {
 	Value string
 }
 
-var USE_DOAS = true
+var USE_DOAS = false
 
 var txtProgramName = "CBSD-TUI"
 var txtHelp = `- To navigate in jails list use 'Up' and 'Down' keys or mouse
@@ -90,6 +92,8 @@ var cbsdCloneJailDialog *dialog.Widget
 var cbsdSnapshotJailDialog *dialog.Widget
 var cbsdEditJailDialog *dialog.Widget
 var cbsdListJails *list.Widget
+
+//var editWidget *edit.Widget
 
 var app *gowid.App
 var menu2 *menu.Widget
@@ -167,19 +171,17 @@ func CreateHelpDialog() *dialog.Widget {
 	return helpdialog
 }
 
-func CreateActionsLogDialog(txtout *text.Widget) *dialog.Widget {
-	txtoutst := styled.New(txtout, gowid.MakePaletteRef("white"))
-	/*
-		sb := vscroll.NewExt(vscroll.VerticalScrollbarUnicodeRunes)
-		col := columns.New([]gowid.IContainerWidget{
-			&gowid.ContainerWidget{txtoutst, gowid.RenderWithWeight{W: 1}},
-			&gowid.ContainerWidget{sb, gowid.RenderWithUnits{U: 1}},
-		})
-	*/
-	actionlogdialog := dialog.New(
-		framed.NewSpace(
-			txtoutst,
+func CreateActionsLogDialog(editWidget *edit.Widget) *dialog.Widget {
+	baheight := cbsdJailConsole.Height()
+	ba := boxadapter.New(
+		styled.New(
+			NewEditWithScrollbar(editWidget),
+			gowid.MakePaletteRef("white"),
 		),
+		baheight,
+	)
+	actionlogdialog := dialog.New(
+		framed.NewUnicode(ba),
 		dialog.Options{
 			Buttons:         []dialog.Button{dialog.CloseD},
 			Modal:           true,
@@ -631,11 +633,13 @@ func GetMenuButton(jail *Jail) *keypress.Widget {
 	btnnew := button.New(txts, button.Options{
 		Decoration: button.BareDecoration,
 	})
-	btnnew.OnDoubleClick(gowid.WidgetCallback{Name: "cbb_" + btxt.Content().String(), WidgetChangedFunction: func(app gowid.IApp, w gowid.IWidget) {
-		app.Run(gowid.RunFunction(func(app gowid.IApp) {
-			LoginToJail(btxt.Content().String())
-		}))
-	}})
+	/*
+		btnnew.OnDoubleClick(gowid.WidgetCallback{Name: "cbb_" + btxt.Content().String(), WidgetChangedFunction: func(app gowid.IApp, w gowid.IWidget) {
+			app.Run(gowid.RunFunction(func(app gowid.IApp) {
+				LoginToJail(btxt.Content().String())
+			}))
+		}})
+	*/
 	kpbtn := keypress.New(
 		cellmod.Opaque(btnnew),
 		keypress.Options{
@@ -656,15 +660,16 @@ func GetMenuButton(jail *Jail) *keypress.Widget {
 func ExecCommand(title string, command string, args []string) {
 	var cmd *exec.Cmd
 	//MAXBUF := 10000000000
-	txtout := text.New(title, text.Options{Align: gowid.HAlignLeft{}})
-	outdlg := CreateActionsLogDialog(txtout)
+	//txtout := text.New(title, text.Options{Align: gowid.HAlignLeft{}})
+	logspace := edit.New(edit.Options{ReadOnly: true})
+	outdlg := CreateActionsLogDialog(logspace)
 	if cbsdActionsDialog != nil {
 		if cbsdActionsDialog.IsOpen() {
 			cbsdActionsDialog.Close(app)
 		}
 	}
 	outdlg.Open(viewHolder, gowid.RenderWithRatio{R: 0.7}, app)
-	outdlgwriter := text.Writer{Widget: txtout, IApp: app}
+	//outdlgwriter := edit.Writer{Widget: logspace, IApp: app}
 	app.RedrawTerminal()
 	cmd = exec.Command(command, args...)
 	cmd.Env = os.Environ()
@@ -683,8 +688,8 @@ func ExecCommand(title string, command string, args []string) {
 	go func() {
 		for scanner.Scan() {
 			logtxt := scanner.Text()
-			logtxt = txtout.Content().String() + "\n" + logtxt
-			outdlgwriter.Write([]byte(logtxt))
+			logspace.SetText(logspace.Text()+logtxt+"\n", app)
+			logspace.SetCursorPos(utf8.RuneCountInString(logspace.Text()), app)
 			app.RedrawTerminal()
 		}
 		wg.Done()
@@ -707,15 +712,16 @@ func ExecShellCommand(title string, command string, args []string, logfile strin
 	MAXBUF := 1000000
 	buf := make([]byte, MAXBUF)
 	log.Infof("Trying to start %s command with %v arguments", command, args)
-	txtout := text.New(title, text.Options{Align: gowid.HAlignLeft{}})
-	outdlg := CreateActionsLogDialog(txtout)
+	logspace := edit.New(edit.Options{ReadOnly: true})
+	//txtout := text.New(title, text.Options{Align: gowid.HAlignLeft{}})
+	outdlg := CreateActionsLogDialog(logspace)
 	if cbsdActionsDialog != nil {
 		if cbsdActionsDialog.IsOpen() {
 			cbsdActionsDialog.Close(app)
 		}
 	}
 	outdlg.Open(viewHolder, gowid.RenderWithRatio{R: 0.7}, app)
-	outdlgwriter := text.Writer{Widget: txtout, IApp: app}
+	//outdlgwriter := edit.Writer{Widget: logspace, IApp: app}
 	app.RedrawTerminal()
 	cmd = exec.Command(command, args...)
 	cmd.Env = os.Environ()
@@ -758,8 +764,10 @@ func ExecShellCommand(title string, command string, args []string, logfile strin
 				}
 				rbytes, err = file.Read(buf)
 				if rbytes > 0 {
-					logtxt := txtout.Content().String() + string(buf[:rbytes]) + "\n"
-					outdlgwriter.Write([]byte(logtxt))
+					//logtxt := logspace.Text() + string(buf[:rbytes]) + "\n"
+					logspace.SetText(logspace.Text()+string(buf[:rbytes])+"\n", app)
+					logspace.SetCursorPos(utf8.RuneCountInString(logspace.Text()), app)
+					//outdlgwriter.Write([]byte(logtxt))
 					app.RedrawTerminal()
 				}
 			}
@@ -1049,7 +1057,7 @@ func ExitOnErr(err error) {
 }
 
 func (h handler) UnhandledInput(app gowid.IApp, ev interface{}) bool {
-	//log.Infof("Handler " + fmt.Sprintf("%T", ev))
+	log.Infof("Handler " + fmt.Sprintf("%T", ev))
 	handled := false
 	evk, ok := ev.(*tcell.EventKey)
 	if ok {
