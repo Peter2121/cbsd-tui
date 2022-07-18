@@ -45,7 +45,7 @@ type PairString struct {
 	Value string
 }
 
-var USE_DOAS = false
+var USE_DOAS = true
 
 var txtProgramName = "CBSD-TUI"
 var txtHelp = `- To navigate in jails list use 'Up' and 'Down' keys or mouse
@@ -92,8 +92,6 @@ var cbsdCloneJailDialog *dialog.Widget
 var cbsdSnapshotJailDialog *dialog.Widget
 var cbsdEditJailDialog *dialog.Widget
 var cbsdListJails *list.Widget
-
-//var editWidget *edit.Widget
 
 var app *gowid.App
 var menu2 *menu.Widget
@@ -232,7 +230,8 @@ func MakeSnapshotJailDialog(jname string) *dialog.Widget {
 	return snapjaildialog
 }
 
-func MakeCloneJailDialog(jname string) *dialog.Widget {
+func MakeCloneJailDialog(jname string, askhostname bool) *dialog.Widget {
+	var edlines *pile.Widget
 	htxt := text.New("Clone jail "+jname, text.Options{Align: gowid.HAlignMiddle{}})
 	htxtst := styled.New(htxt, gowid.MakePaletteRef("magenta"))
 	ednewjname := edit.New(edit.Options{Caption: "New jail name: ", Text: jname + "clone"})
@@ -241,12 +240,20 @@ func MakeCloneJailDialog(jname string) *dialog.Widget {
 	ednewhnamest := styled.New(ednewhname, gowid.MakePaletteRef("green"))
 	ednewip := edit.New(edit.Options{Caption: "New IP address: ", Text: "DHCP"})
 	ednewipst := styled.New(ednewip, gowid.MakePaletteRef("green"))
-	edlines := pile.New([]gowid.IContainerWidget{
-		&gowid.ContainerWidget{IWidget: htxtst, D: gowid.RenderFlow{}},
-		&gowid.ContainerWidget{IWidget: ednewjnamest, D: gowid.RenderFlow{}},
-		&gowid.ContainerWidget{IWidget: ednewhnamest, D: gowid.RenderFlow{}},
-		&gowid.ContainerWidget{IWidget: ednewipst, D: gowid.RenderFlow{}},
-	})
+	if askhostname {
+		edlines = pile.New([]gowid.IContainerWidget{
+			&gowid.ContainerWidget{IWidget: htxtst, D: gowid.RenderFlow{}},
+			&gowid.ContainerWidget{IWidget: ednewjnamest, D: gowid.RenderFlow{}},
+			&gowid.ContainerWidget{IWidget: ednewhnamest, D: gowid.RenderFlow{}},
+			&gowid.ContainerWidget{IWidget: ednewipst, D: gowid.RenderFlow{}},
+		})
+	} else {
+		edlines = pile.New([]gowid.IContainerWidget{
+			&gowid.ContainerWidget{IWidget: htxtst, D: gowid.RenderFlow{}},
+			&gowid.ContainerWidget{IWidget: ednewjnamest, D: gowid.RenderFlow{}},
+			&gowid.ContainerWidget{IWidget: ednewipst, D: gowid.RenderFlow{}},
+		})
+	}
 	Ok := dialog.Button{
 		Msg: "OK",
 		Action: gowid.MakeWidgetCallback("execclonejail", gowid.WidgetChangedFunction(func(app gowid.IApp, w gowid.IWidget) {
@@ -389,11 +396,13 @@ func RunActionOnJail(action string, jname string) {
 		SnapshotJail(jname)
 	case (&Jail{}).GetActionsMenuItems()[2]: // "List Snapshots"
 		ListSnapshotsJail(jname)
-	case (&Jail{}).GetActionsMenuItems()[3]: // "Edit"
+	case (&Jail{}).GetActionsMenuItems()[3]: // "View"
+		ViewJail(jname)
+	case (&Jail{}).GetActionsMenuItems()[4]: // "Edit"
 		EditJail(jname)
-	case (&Jail{}).GetActionsMenuItems()[4]: // "Clone"
+	case (&Jail{}).GetActionsMenuItems()[5]: // "Clone"
 		CloneJail(jname)
-	case (&Jail{}).GetActionsMenuItems()[5]: // "Export"
+	case (&Jail{}).GetActionsMenuItems()[6]: // "Export"
 		ExportJail(jname)
 	}
 }
@@ -402,13 +411,13 @@ func RunMenuAction(action string) {
 	log.Infof("Menu Action: " + action)
 
 	switch action {
-	// "[F1]Help ",            "[F2]Actions Menu ", "[F4]Edit ",            "[F5]Clone ",      "[F6]Export ",
-	// "[F7]Create Snapshot ", "[F10]Exit ",        "[F11]List Snapshots ", "[F12]Start/Stop"
+	// "[F1]Help ",      "[F2]Actions Menu ",    "[F3]View ",     "[F4]Edit ",            "[F5]Clone ",
+	// "[F6]Export ",    "[F7]Create Snapshot ", "[F10]Exit ",    "[F11]List Snapshots ", "[F12]Start/Stop"
 	case (&Jail{}).GetBottomMenuText2()[0]: // Help
 		helpdialog := CreateHelpDialog()
 		helpdialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.6}, app)
 		return
-	case (&Jail{}).GetBottomMenuText2()[6]: // Exit
+	case (&Jail{}).GetBottomMenuText2()[7]: // Exit
 		app.Quit()
 	}
 
@@ -418,17 +427,19 @@ func RunMenuAction(action string) {
 	switch action {
 	case (&Jail{}).GetBottomMenuText2()[1]: // Actions Menu
 		OpenJailActionsMenu(jname)
-	case (&Jail{}).GetBottomMenuText2()[2]: // Edit
+	case (&Jail{}).GetBottomMenuText2()[2]: // View
+		ViewJail(jname)
+	case (&Jail{}).GetBottomMenuText2()[3]: // Edit
 		EditJail(jname)
-	case (&Jail{}).GetBottomMenuText2()[3]: // Clone
+	case (&Jail{}).GetBottomMenuText2()[4]: // Clone
 		CloneJail(jname)
-	case (&Jail{}).GetBottomMenuText2()[4]: // Export
+	case (&Jail{}).GetBottomMenuText2()[5]: // Export
 		ExportJail(jname)
-	case (&Jail{}).GetBottomMenuText2()[5]: // Create Snapshot
+	case (&Jail{}).GetBottomMenuText2()[6]: // Create Snapshot
 		SnapshotJail(jname)
-	case (&Jail{}).GetBottomMenuText2()[7]: // List Snapshots
+	case (&Jail{}).GetBottomMenuText2()[8]: // List Snapshots
 		ListSnapshotsJail(jname)
-	case (&Jail{}).GetBottomMenuText2()[8]: // Start/Stop
+	case (&Jail{}).GetBottomMenuText2()[9]: // Start/Stop
 		StartStopJail(jname)
 	}
 }
@@ -439,8 +450,8 @@ func GetSelectedJailName() string {
 	return jname
 }
 
-func ViewJail() {
-	jname := GetSelectedJailName()
+func ViewJail(jname string) {
+	//jname := GetSelectedJailName()
 	jail := GetJailByName(jname)
 	result, err := jail.GetJailFromDbFull(GetCbsdDbConnString(false), jname)
 	if err != nil {
@@ -449,6 +460,11 @@ func ViewJail() {
 	if !result {
 		panic(err)
 	}
+	viewspace := edit.New(edit.Options{ReadOnly: true})
+	outdlg := CreateActionsLogDialog(viewspace)
+	outdlg.Open(viewHolder, gowid.RenderWithRatio{R: 0.7}, app)
+	viewspace.SetText(jail.GetJailViewString(), app)
+	app.RedrawTerminal()
 }
 
 func DoSnapshotJail(jname string, snapname string) {
@@ -573,7 +589,7 @@ func EditJail(jname string) {
 }
 
 func CloneJail(jname string) {
-	cbsdCloneJailDialog = MakeCloneJailDialog(jname)
+	cbsdCloneJailDialog = MakeCloneJailDialog(jname, true)
 	cbsdCloneJailDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
 }
 
@@ -657,8 +673,6 @@ func GetMenuButton(jail *Jail) *keypress.Widget {
 
 func ExecCommand(title string, command string, args []string) {
 	var cmd *exec.Cmd
-	//MAXBUF := 10000000000
-	//txtout := text.New(title, text.Options{Align: gowid.HAlignLeft{}})
 	logspace := edit.New(edit.Options{ReadOnly: true})
 	outdlg := CreateActionsLogDialog(logspace)
 	if cbsdActionsDialog != nil {
@@ -1086,20 +1100,20 @@ func (h handler) UnhandledInput(app gowid.IApp, ev interface{}) bool {
 		case tcell.KeyF2:
 			RunMenuAction((&Jail{}).GetBottomMenuText2()[1]) // Actions Menu
 		case tcell.KeyF3:
-			ViewJail()
-			//RunMenuAction((&Jail{}).GetBottomMenuText2()[2]) // Edit
+			//ViewJail()
+			RunMenuAction((&Jail{}).GetBottomMenuText2()[2]) // View
 		case tcell.KeyF4:
-			RunMenuAction((&Jail{}).GetBottomMenuText2()[2]) // Edit
+			RunMenuAction((&Jail{}).GetBottomMenuText2()[3]) // Edit
 		case tcell.KeyF5:
-			RunMenuAction((&Jail{}).GetBottomMenuText2()[3]) // Clone
+			RunMenuAction((&Jail{}).GetBottomMenuText2()[4]) // Clone
 		case tcell.KeyF6:
-			RunMenuAction((&Jail{}).GetBottomMenuText2()[4]) // Export
+			RunMenuAction((&Jail{}).GetBottomMenuText2()[5]) // Export
 		case tcell.KeyF7:
-			RunMenuAction((&Jail{}).GetBottomMenuText2()[5]) // Create Snapshot
+			RunMenuAction((&Jail{}).GetBottomMenuText2()[6]) // Create Snapshot
 		case tcell.KeyF11:
-			RunMenuAction((&Jail{}).GetBottomMenuText2()[7]) // List Snapshots
+			RunMenuAction((&Jail{}).GetBottomMenuText2()[8]) // List Snapshots
 		case tcell.KeyF12:
-			RunMenuAction((&Jail{}).GetBottomMenuText2()[8]) // Start/Stop
+			RunMenuAction((&Jail{}).GetBottomMenuText2()[9]) // Start/Stop
 		default:
 			handled = false
 		}
