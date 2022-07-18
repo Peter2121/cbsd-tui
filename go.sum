@@ -23,6 +23,8 @@ github.com/gcla/gowid v1.3.1-0.20220709183056-fe6367ab3603 h1:bh1Y2Y9F/Yhy+spcsg
 github.com/gcla/gowid v1.3.1-0.20220709183056-fe6367ab3603/go.mod h1:7T4Xzfznq31XvQyAOX+SZzQjvF7RX16mjXDXGB7R/44=
 github.com/gcla/gowid v1.4.0 h1:sZRBh2gqO9EQAXQXrg//2iL4Di8CjFX5NoM66Ldlmig=
 github.com/gcla/gowid v1.4.0/go.mod h1:7T4Xzfznq31XvQyAOX+SZzQjvF7RX16mjXDXGB7R/44=
+github.com/gcla/gowid v1.4.1-0.20220717013040-1d7a75b6f5cb h1:2mcKfxYIaG+Yq0Nq8CxZWQcmyUVkUpylpYgb8qwEjik=
+github.com/gcla/gowid v1.4.1-0.20220717013040-1d7a75b6f5cb/go.mod h1:7T4Xzfznq31XvQyAOX+SZzQjvF7RX16mjXDXGB7R/44=
 github.com/gdamore/encoding v1.0.0 h1:+7OoQ1Bc6eTm5niUzBa0Ctsh6JbMW6Ra+YNuAtDBdko=
 github.com/gdamore/encoding v1.0.0/go.mod h1:alR0ol34c49FCSBLjhosxzcPHQbf2trDkoo5dl+VrEg=
 github.com/gdamore/tcell v1.3.1-0.20200115030318-bff4943f9a29 h1:kvzEHvL4/ORuWe6JN6WeaiRYIvVDUVaC2r0gpJIxJ6I=

@@ -633,13 +633,11 @@ func GetMenuButton(jail *Jail) *keypress.Widget {
 	btnnew := button.New(txts, button.Options{
 		Decoration: button.BareDecoration,
 	})
-	/*
-		btnnew.OnDoubleClick(gowid.WidgetCallback{Name: "cbb_" + btxt.Content().String(), WidgetChangedFunction: func(app gowid.IApp, w gowid.IWidget) {
-			app.Run(gowid.RunFunction(func(app gowid.IApp) {
-				LoginToJail(btxt.Content().String())
-			}))
-		}})
-	*/
+	btnnew.OnDoubleClick(gowid.WidgetCallback{Name: "cbb_" + btxt.Content().String(), WidgetChangedFunction: func(app gowid.IApp, w gowid.IWidget) {
+		app.Run(gowid.RunFunction(func(app gowid.IApp) {
+			LoginToJail(btxt.Content().String())
+		}))
+	}})
 	kpbtn := keypress.New(
 		cellmod.Opaque(btnnew),
 		keypress.Options{
