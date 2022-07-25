@@ -85,6 +85,7 @@ var cbsdJailsFromDb []*Jail
 var shellProgram = "/bin/sh"
 var stdbufProgram = "/usr/bin/stdbuf"
 var logJstart = "/var/log/jstart.log"
+var logText string = ""
 
 var cbsdActionsMenu map[string][]gowid.IWidget
 var cbsdActionsDialog *dialog.Widget
@@ -681,8 +682,6 @@ func ExecCommand(title string, command string, args []string) {
 		}
 	}
 	outdlg.Open(viewHolder, gowid.RenderWithRatio{R: 0.7}, app)
-	//outdlgwriter := edit.Writer{Widget: logspace, IApp: app}
-	//app.Redraw()
 	app.RedrawTerminal()
 	cmd = exec.Command(command, args...)
 	cmd.Env = os.Environ()
@@ -699,11 +698,10 @@ func ExecCommand(title string, command string, args []string) {
 	wg.Add(1)
 	go func() {
 		for scanner.Scan() {
-			logtxt := scanner.Text()
-			app.Run(gowid.RunFunction(func(app gowid.IApp) {
-				logspace.SetText(logspace.Text()+logtxt+"\n", app)
+			logText = logspace.Text() + scanner.Text() + "\n"
+			app.RunThenRenderEvent(gowid.RunFunction(func(app gowid.IApp) {
+				logspace.SetText(logText, app)
 				logspace.SetCursorPos(utf8.RuneCountInString(logspace.Text()), app)
-				app.Redraw()
 			}))
 			//app.RedrawTerminal()
 		}
@@ -728,7 +726,6 @@ func ExecShellCommand(title string, command string, args []string, logfile strin
 	buf := make([]byte, MAXBUF)
 	log.Infof("Trying to start %s command with %v arguments", command, args)
 	logspace := edit.New(edit.Options{ReadOnly: true})
-	//txtout := text.New(title, text.Options{Align: gowid.HAlignLeft{}})
 	outdlg := CreateActionsLogDialog(logspace)
 	if cbsdActionsDialog != nil {
 		if cbsdActionsDialog.IsOpen() {
@@ -736,8 +733,6 @@ func ExecShellCommand(title string, command string, args []string, logfile strin
 		}
 	}
 	outdlg.Open(viewHolder, gowid.RenderWithRatio{R: 0.7}, app)
-	//outdlgwriter := edit.Writer{Widget: logspace, IApp: app}
-	//app.Redraw()
 	app.RedrawTerminal()
 	cmd = exec.Command(command, args...)
 	cmd.Env = os.Environ()
@@ -780,13 +775,12 @@ func ExecShellCommand(title string, command string, args []string, logfile strin
 				}
 				rbytes, err = file.Read(buf)
 				if rbytes > 0 {
-					//logtxt := logspace.Text() + string(buf[:rbytes]) + "\n"
-					app.Run(gowid.RunFunction(func(app gowid.IApp) {
-						logspace.SetText(logspace.Text()+string(buf[:rbytes])+"\n", app)
+					logText = logspace.Text() + string(buf[:rbytes]) + "\n"
+					app.RunThenRenderEvent(gowid.RunFunction(func(app gowid.IApp) {
+						logspace.SetText(logText, app)
 						logspace.SetCursorPos(utf8.RuneCountInString(logspace.Text()), app)
-						app.Redraw()
+						app.Sync()
 					}))
-					//outdlgwriter.Write([]byte(logtxt))
 					//app.RedrawTerminal()
 				}
 			}
