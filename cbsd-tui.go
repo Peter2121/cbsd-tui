@@ -45,7 +45,7 @@ type PairString struct {
 	Value string
 }
 
-var USE_DOAS = true
+var USE_DOAS = false
 
 var txtProgramName = "CBSD-TUI"
 var txtHelp = `- To navigate in jails list use 'Up' and 'Down' keys or mouse
@@ -682,6 +682,7 @@ func ExecCommand(title string, command string, args []string) {
 	}
 	outdlg.Open(viewHolder, gowid.RenderWithRatio{R: 0.7}, app)
 	//outdlgwriter := edit.Writer{Widget: logspace, IApp: app}
+	//app.Redraw()
 	app.RedrawTerminal()
 	cmd = exec.Command(command, args...)
 	cmd.Env = os.Environ()
@@ -696,13 +697,15 @@ func ExecCommand(title string, command string, args []string) {
 	//scanner.Buffer(make([]byte, MAXBUF), MAXBUF)
 	var wg sync.WaitGroup
 	wg.Add(1)
-
 	go func() {
 		for scanner.Scan() {
 			logtxt := scanner.Text()
-			logspace.SetText(logspace.Text()+logtxt+"\n", app)
-			logspace.SetCursorPos(utf8.RuneCountInString(logspace.Text()), app)
-			app.RedrawTerminal()
+			app.Run(gowid.RunFunction(func(app gowid.IApp) {
+				logspace.SetText(logspace.Text()+logtxt+"\n", app)
+				logspace.SetCursorPos(utf8.RuneCountInString(logspace.Text()), app)
+				app.Redraw()
+			}))
+			//app.RedrawTerminal()
 		}
 		wg.Done()
 	}()
@@ -734,6 +737,7 @@ func ExecShellCommand(title string, command string, args []string, logfile strin
 	}
 	outdlg.Open(viewHolder, gowid.RenderWithRatio{R: 0.7}, app)
 	//outdlgwriter := edit.Writer{Widget: logspace, IApp: app}
+	//app.Redraw()
 	app.RedrawTerminal()
 	cmd = exec.Command(command, args...)
 	cmd.Env = os.Environ()
@@ -777,10 +781,13 @@ func ExecShellCommand(title string, command string, args []string, logfile strin
 				rbytes, err = file.Read(buf)
 				if rbytes > 0 {
 					//logtxt := logspace.Text() + string(buf[:rbytes]) + "\n"
-					logspace.SetText(logspace.Text()+string(buf[:rbytes])+"\n", app)
-					logspace.SetCursorPos(utf8.RuneCountInString(logspace.Text()), app)
+					app.Run(gowid.RunFunction(func(app gowid.IApp) {
+						logspace.SetText(logspace.Text()+string(buf[:rbytes])+"\n", app)
+						logspace.SetCursorPos(utf8.RuneCountInString(logspace.Text()), app)
+						app.Redraw()
+					}))
 					//outdlgwriter.Write([]byte(logtxt))
-					app.RedrawTerminal()
+					//app.RedrawTerminal()
 				}
 			}
 			select {
