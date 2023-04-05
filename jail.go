@@ -170,7 +170,7 @@ func GetJailsFromDb(dbname string) ([]*Jail, error) {
 	}
 	defer db.Close()
 
-	jails_list_query := "SELECT jname,ip4_addr,status,astart,ver FROM jails"
+	jails_list_query := "SELECT jname,ip4_addr,status,astart,ver FROM jails WHERE emulator='jail'"
 	rows, err := db.Query(jails_list_query)
 	if err != nil {
 		return jails, err
