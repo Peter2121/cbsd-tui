@@ -45,7 +45,7 @@ type PairString struct {
 	Value string
 }
 
-var USE_DOAS = false
+var USE_DOAS = true
 
 var txtProgramName = "CBSD-TUI"
 var txtHelp = `- To navigate in jails list use 'Up' and 'Down' keys or mouse
@@ -66,7 +66,7 @@ var pwProgram = "/usr/sbin/pw"
 
 var cbsdUser *user.User = nil
 
-//var cbsdDatabaseName = "file:/usr/local/jails/cbsd/var/db/local.sqlite?mode=ro"
+// var cbsdDatabaseName = "file:/usr/local/jails/cbsd/var/db/local.sqlite?mode=ro"
 var cbsdDatabaseName = "/var/db/local.sqlite"
 var logFileName = "/var/log/cbsd-tui.log"
 
@@ -389,22 +389,23 @@ func MakeCbsdJailActionsMenu(jname string) []gowid.IWidget {
 func RunActionOnJail(action string, jname string) {
 	log.Infof("Action: " + action + " on jail: " + jname)
 
-	switch action {
-	case "Start":
-	case "Stop":
+	if strings.Contains((&Jail{}).GetActionsMenuItems()[0], action) {
 		StartStopJail(jname)
-	case (&Jail{}).GetActionsMenuItems()[1]: // "Create Snapshot"
-		SnapshotJail(jname)
-	case (&Jail{}).GetActionsMenuItems()[2]: // "List Snapshots"
-		ListSnapshotsJail(jname)
-	case (&Jail{}).GetActionsMenuItems()[3]: // "View"
-		ViewJail(jname)
-	case (&Jail{}).GetActionsMenuItems()[4]: // "Edit"
-		EditJail(jname)
-	case (&Jail{}).GetActionsMenuItems()[5]: // "Clone"
-		CloneJail(jname)
-	case (&Jail{}).GetActionsMenuItems()[6]: // "Export"
-		ExportJail(jname)
+	} else {
+		switch action {
+		case (&Jail{}).GetActionsMenuItems()[1]: // "Create Snapshot"
+			SnapshotJail(jname)
+		case (&Jail{}).GetActionsMenuItems()[2]: // "List Snapshots"
+			ListSnapshotsJail(jname)
+		case (&Jail{}).GetActionsMenuItems()[3]: // "View"
+			ViewJail(jname)
+		case (&Jail{}).GetActionsMenuItems()[4]: // "Edit"
+			EditJail(jname)
+		case (&Jail{}).GetActionsMenuItems()[5]: // "Clone"
+			CloneJail(jname)
+		case (&Jail{}).GetActionsMenuItems()[6]: // "Export"
+			ExportJail(jname)
+		}
 	}
 }
 
