@@ -18,12 +18,12 @@ type Jail struct {
 var strStatus = []string{"Off", "On", "Slave", "Unknown(3)", "Unknown(4)", "Unknown(5)"}
 var strAutoStart = []string{"Off", "On"}
 var strHeaderTitles = []string{"NAME", "IP4_ADDRESS", "STATUS", "AUTOSTART", "VERSION"}
-var strActionsMenuItems = []string{"Start/Stop", "Create Snapshot", "List Snapshots", "View ", "Edit", "Clone", "Export"}
+var strActionsMenuItems = []string{"Start/Stop", "Create Snapshot", "List Snapshots", "View ", "Edit", "Clone", "Export", "Destroy"}
 
 //var cbsdActionsMenuText = []string{"Start/Stop", "Create Snapshot", "List Snapshots", "Clone", "Export", "Migrate", "Destroy", "Makeresolv", "Show Config"}
 
-var strBottomMenuText1 = []string{" 1", " 2", " 3", " 4", " 5", " 6", " 7", " 10", " 11", " 12"}
-var strBottomMenuText2 = []string{"Help ", "Actions Menu ", "View ", "Edit ", "Clone ", "Export ", "Create Snap. ", "Exit ", "List Snap. ", "Start/Stop"}
+var strBottomMenuText1 = []string{" 1", " 2", " 3", " 4", " 5", " 6", " 7", " 8", " 10", " 11", " 12"}
+var strBottomMenuText2 = []string{"Help ", "Actions... ", "View ", "Edit ", "Clone ", "Export ", "Create Snap. ", "Destroy ", "Exit ", "List Snap. ", "Start/Stop"}
 
 func (jail *Jail) GetBottomMenuText1() []string {
 	return strBottomMenuText1

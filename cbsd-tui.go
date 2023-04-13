@@ -45,7 +45,7 @@ type PairString struct {
 	Value string
 }
 
-var USE_DOAS = false
+var USE_DOAS = true
 
 var txtProgramName = "CBSD-TUI"
 var txtHelp = `- To navigate in jails list use 'Up' and 'Down' keys or mouse
@@ -91,6 +91,7 @@ var cbsdActionsMenu map[string][]gowid.IWidget
 var cbsdActionsDialog *dialog.Widget
 var cbsdCloneJailDialog *dialog.Widget
 var cbsdSnapshotJailDialog *dialog.Widget
+var cbsdDestroyJailDialog *dialog.Widget
 var cbsdEditJailDialog *dialog.Widget
 var cbsdListJails *list.Widget
 
@@ -362,6 +363,42 @@ func MakeEditJailDialog(jname string) *dialog.Widget {
 	return editjaildialog
 }
 
+func MakeDestroyJailConfirmationDialog(jname string) *dialog.Widget {
+	htxt := text.New("Destroy jail "+jname, text.Options{Align: gowid.HAlignMiddle{}})
+	htxtst := styled.New(htxt, gowid.MakePaletteRef("magenta"))
+	confirmtxt := text.New("\nReally destroy jail "+jname+"??", text.Options{Align: gowid.HAlignLeft{}})
+	confirmtxtst := styled.New(confirmtxt, gowid.MakePaletteRef("green"))
+	edlines := pile.New([]gowid.IContainerWidget{
+		&gowid.ContainerWidget{IWidget: htxtst, D: gowid.RenderFlow{}},
+		&gowid.ContainerWidget{IWidget: confirmtxtst, D: gowid.RenderFlow{}},
+	})
+	Ok := dialog.Button{
+		Msg: "OK",
+		Action: gowid.MakeWidgetCallback("execdeljail", gowid.WidgetChangedFunction(func(app gowid.IApp, w gowid.IWidget) {
+			cbsdDestroyJailDialog.Close(app)
+			DoDestroyJail(jname)
+		})),
+	}
+	Cancel := dialog.Button{
+		Msg: "Cancel",
+	}
+	destroyjaildialog := dialog.New(
+		framed.NewSpace(
+			edlines,
+		),
+		dialog.Options{
+			Buttons:         []dialog.Button{Ok, Cancel},
+			NoShadow:        true,
+			BackgroundStyle: gowid.MakePaletteRef("bluebg"),
+			BorderStyle:     gowid.MakePaletteRef("dialog"),
+			ButtonStyle:     gowid.MakePaletteRef("white-focus"),
+			Modal:           true,
+			FocusOnWidget:   true,
+		},
+	)
+	return destroyjaildialog
+}
+
 func MakeCbsdActionsMenu() map[string][]gowid.IWidget {
 	actions := make(map[string][]gowid.IWidget, 0)
 	for _, j := range cbsdJailsFromDb {
@@ -405,6 +442,8 @@ func RunActionOnJail(action string, jname string) {
 			CloneJail(jname)
 		case (&Jail{}).GetActionsMenuItems()[6]: // "Export"
 			ExportJail(jname)
+		case (&Jail{}).GetActionsMenuItems()[7]: // "Destroy"
+			DestroyJail(jname)
 		}
 	}
 }
@@ -413,13 +452,13 @@ func RunMenuAction(action string) {
 	log.Infof("Menu Action: " + action)
 
 	switch action {
-	// "[F1]Help ",      "[F2]Actions Menu ",    "[F3]View ",     "[F4]Edit ",            "[F5]Clone ",
-	// "[F6]Export ",    "[F7]Create Snapshot ", "[F10]Exit ",    "[F11]List Snapshots ", "[F12]Start/Stop"
+	// "[F1]Help ",      "[F2]Actions Menu ",    "[F3]View ",     "[F4]Edit ",     "[F5]Clone ",
+	// "[F6]Export ",    "[F7]Create Snapshot ", "[F8]Destroy ",  "[F10]Exit ",    "[F11]List Snapshots ", "[F12]Start/Stop"
 	case (&Jail{}).GetBottomMenuText2()[0]: // Help
 		helpdialog := CreateHelpDialog()
 		helpdialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.6}, app)
 		return
-	case (&Jail{}).GetBottomMenuText2()[7]: // Exit
+	case (&Jail{}).GetBottomMenuText2()[8]: // Exit
 		app.Quit()
 	}
 
@@ -439,16 +478,25 @@ func RunMenuAction(action string) {
 		ExportJail(jname)
 	case (&Jail{}).GetBottomMenuText2()[6]: // Create Snapshot
 		SnapshotJail(jname)
-	case (&Jail{}).GetBottomMenuText2()[8]: // List Snapshots
+	case (&Jail{}).GetBottomMenuText2()[7]: // Destroy
+		DestroyJail(jname)
+	case (&Jail{}).GetBottomMenuText2()[9]: // List Snapshots
 		ListSnapshotsJail(jname)
-	case (&Jail{}).GetBottomMenuText2()[9]: // Start/Stop
+	case (&Jail{}).GetBottomMenuText2()[10]: // Start/Stop
 		StartStopJail(jname)
 	}
 }
 
 func GetSelectedJailName() string {
 	ifocus := cbsdListJails.Walker().Focus()
-	jname := cbsdJailsFromDb[int(ifocus.(list.ListPos))-1].GetName()
+	curpos := int(ifocus.(list.ListPos)) - 1
+	if curpos < 0 {
+		return ""
+	}
+	if len(cbsdJailsFromDb) < curpos {
+		return ""
+	}
+	jname := cbsdJailsFromDb[curpos].GetName()
 	return jname
 }
 
@@ -487,6 +535,25 @@ func DoSnapshotJail(jname string, snapname string) {
 		command = cbsdProgram
 	}
 	ExecCommand(txtheader, command, args)
+}
+
+func DoDestroyJail(jname string) {
+	// cbsd jdestroy jname=nim1
+	var command string
+	txtheader := "Destroying jail " + jname + "...\n"
+	args := make([]string, 0)
+	if USE_DOAS {
+		args = append(args, "cbsd")
+	}
+	args = append(args, "jdestroy")
+	args = append(args, "jname="+jname)
+	if USE_DOAS {
+		command = doasProgram
+	} else {
+		command = cbsdProgram
+	}
+	ExecCommand(txtheader, command, args)
+	RefreshJailList()
 }
 
 func DoEditJail(jname string, astart bool, version string, ip string) {
@@ -564,6 +631,11 @@ func RefreshJailList() {
 func SnapshotJail(jname string) {
 	cbsdSnapshotJailDialog = MakeSnapshotJailDialog(jname)
 	cbsdSnapshotJailDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
+}
+
+func DestroyJail(jname string) {
+	cbsdDestroyJailDialog = MakeDestroyJailConfirmationDialog(jname)
+	cbsdDestroyJailDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
 }
 
 func ListSnapshotsJail(jname string) {
@@ -1088,8 +1160,8 @@ func (h handler) UnhandledInput(app gowid.IApp, ev interface{}) bool {
 				handled = false
 			}
 		*/
-		// "[F1]Help ",            "[F2]Actions Menu ", "[F4]Edit ",           "[F5]Clone ",      "[F6]Export ",
-		// "[F7]Create Snapshot ", "[F10]Exit ",        "[F11]List Snapshots ", "[F12]Start/Stop"
+		// "[F1]Help ",            "[F2]Actions Menu ", "[F4]Edit ",   "[F5]Clone ",           "[F6]Export ",
+		// "[F7]Create Snapshot ", "[F8]Destroy ",      "[F10]Exit ",  "[F11]List Snapshots ", "[F12]Start/Stop"
 		switch evk.Key() {
 		case tcell.KeyCtrlC, tcell.KeyEsc, tcell.KeyF10:
 			app.Quit()
@@ -1112,10 +1184,12 @@ func (h handler) UnhandledInput(app gowid.IApp, ev interface{}) bool {
 			RunMenuAction((&Jail{}).GetBottomMenuText2()[5]) // Export
 		case tcell.KeyF7:
 			RunMenuAction((&Jail{}).GetBottomMenuText2()[6]) // Create Snapshot
+		case tcell.KeyF8:
+			RunMenuAction((&Jail{}).GetBottomMenuText2()[7]) // Destroy
 		case tcell.KeyF11:
-			RunMenuAction((&Jail{}).GetBottomMenuText2()[8]) // List Snapshots
+			RunMenuAction((&Jail{}).GetBottomMenuText2()[9]) // List Snapshots
 		case tcell.KeyF12:
-			RunMenuAction((&Jail{}).GetBottomMenuText2()[9]) // Start/Stop
+			RunMenuAction((&Jail{}).GetBottomMenuText2()[10]) // Start/Stop
 		default:
 			handled = false
 		}
