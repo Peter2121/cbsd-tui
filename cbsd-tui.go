@@ -232,6 +232,85 @@ func MakeSnapshotJailDialog(jname string) *dialog.Widget {
 	return snapjaildialog
 }
 
+func MakeDialog(title string, txt []string,
+	boolparnames []string, boolpardefaults []bool,
+	strparnames []string, strpardefaults []string,
+	okfunc func(boolparams []bool, strparams []string)) *dialog.Widget {
+
+	var edlines *pile.Widget
+	var containers []gowid.IContainerWidget
+
+	ntxt := len(txt)
+	nboolparams := len(boolparnames)
+	nstrparams := len(strparnames)
+
+	var widtxt []*text.Widget
+	var widtxtst []*styled.Widget
+
+	var widchecktxt []*text.Widget
+	var widchecktxtst []*styled.Widget
+	var widcheck []*checkbox.Widget
+	var widcheckgrp []*hpadding.Widget
+
+	var wideditparams []*edit.Widget
+	var wideditstparams []*styled.Widget
+
+	var strparams []string
+	var boolparams []bool
+
+	htxt := text.New(title, text.Options{Align: gowid.HAlignMiddle{}})
+	htxtst := styled.New(htxt, gowid.MakePaletteRef("magenta"))
+	containers = append(containers, &gowid.ContainerWidget{IWidget: htxtst, D: gowid.RenderFlow{}})
+
+	for i := 0; i < ntxt; i++ {
+		widtxt = append(widtxt, text.New(txt[i], text.Options{Align: gowid.HAlignLeft{}}))
+		widtxtst = append(widtxtst, styled.New(widtxt[i], gowid.MakePaletteRef("green")))
+		containers = append(containers, &gowid.ContainerWidget{IWidget: widtxtst[i], D: gowid.RenderFlow{}})
+	}
+
+	for i := 0; i < nboolparams; i++ {
+		widchecktxt = append(widchecktxt, text.New(boolparnames[i], text.Options{Align: gowid.HAlignLeft{}}))
+		widchecktxtst = append(widchecktxtst, styled.New(widchecktxt[i], gowid.MakePaletteRef("green")))
+		widcheck = append(widcheck, checkbox.New(boolpardefaults[i]))
+		widcheckgrp = append(widcheckgrp, hpadding.New(columns.NewFixed(widchecktxtst[i], widcheck[i]), gowid.HAlignLeft{}, gowid.RenderFixed{}))
+		containers = append(containers, &gowid.ContainerWidget{IWidget: widcheckgrp[i], D: gowid.RenderFlow{}})
+	}
+
+	for i := 0; i < nstrparams; i++ {
+		wideditparams = append(wideditparams, edit.New(edit.Options{Caption: strparnames[i], Text: strpardefaults[i]}))
+		wideditstparams = append(wideditstparams, styled.New(wideditparams[i], gowid.MakePaletteRef("green")))
+		containers = append(containers, &gowid.ContainerWidget{IWidget: wideditstparams[i], D: gowid.RenderFlow{}})
+	}
+
+	edlines = pile.New(containers)
+
+	Ok := dialog.Button{
+		Msg: "OK",
+		Action: gowid.MakeWidgetCallback("execclonejail", gowid.WidgetChangedFunction(func(app gowid.IApp, w gowid.IWidget) {
+			okfunc(boolparams, strparams)
+		})),
+	}
+	Cancel := dialog.Button{
+		Msg: "Cancel",
+	}
+
+	retdialog := dialog.New(
+		framed.NewSpace(
+			edlines,
+		),
+		dialog.Options{
+			Buttons:         []dialog.Button{Ok, Cancel},
+			NoShadow:        true,
+			BackgroundStyle: gowid.MakePaletteRef("bluebg"),
+			BorderStyle:     gowid.MakePaletteRef("dialog"),
+			ButtonStyle:     gowid.MakePaletteRef("white-focus"),
+			Modal:           true,
+			FocusOnWidget:   true,
+		},
+	)
+	return retdialog
+}
+
 func MakeCloneJailDialog(jname string, askhostname bool) *dialog.Widget {
 	var edlines *pile.Widget
 	htxt := text.New("Clone jail "+jname, text.Options{Align: gowid.HAlignMiddle{}})
