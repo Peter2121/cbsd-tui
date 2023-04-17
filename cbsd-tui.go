@@ -21,6 +21,7 @@ import (
 	"github.com/gcla/gowid/widgets/checkbox"
 	"github.com/gcla/gowid/widgets/columns"
 	"github.com/gcla/gowid/widgets/dialog"
+	"github.com/gcla/gowid/widgets/divider"
 	"github.com/gcla/gowid/widgets/edit"
 	"github.com/gcla/gowid/widgets/fill"
 	"github.com/gcla/gowid/widgets/framed"
@@ -45,7 +46,7 @@ type PairString struct {
 	Value string
 }
 
-var USE_DOAS = true
+var USE_DOAS = false
 
 var txtProgramName = "CBSD-TUI"
 var txtHelp = `- To navigate in jails list use 'Up' and 'Down' keys or mouse
@@ -138,37 +139,7 @@ func CreateCbsdJailActionsDialog(jname string) *dialog.Widget {
 }
 
 func CreateHelpDialog() *dialog.Widget {
-	txthead := text.New(txtProgramName, text.Options{Align: gowid.HAlignMiddle{}})
-	txtheadst := styled.New(txthead, gowid.MakePaletteRef("magenta"))
-	txthelp := text.New(txtHelp, text.Options{Align: gowid.HAlignLeft{}})
-	txthelpst := styled.New(txthelp, gowid.MakePaletteRef("white"))
-	/*
-		sb := vscroll.NewExt(vscroll.VerticalScrollbarUnicodeRunes)
-		col := columns.New([]gowid.IContainerWidget{
-			&gowid.ContainerWidget{txtoutst, gowid.RenderWithWeight{W: 1}},
-			&gowid.ContainerWidget{sb, gowid.RenderWithUnits{U: 1}},
-		})
-	*/
-	helplines := pile.New([]gowid.IContainerWidget{
-		&gowid.ContainerWidget{IWidget: txtheadst, D: gowid.RenderFlow{}},
-		&gowid.ContainerWidget{IWidget: txthelpst, D: gowid.RenderFlow{}},
-	})
-	helpdialog := dialog.New(
-		framed.NewSpace(
-			helplines,
-		),
-		dialog.Options{
-			Buttons:         []dialog.Button{dialog.CloseD},
-			Modal:           true,
-			NoShadow:        true,
-			TabToButtons:    true,
-			BackgroundStyle: gowid.MakePaletteRef("bluebg"),
-			BorderStyle:     gowid.MakePaletteRef("dialog"),
-			ButtonStyle:     gowid.MakePaletteRef("white-focus"),
-			FocusOnWidget:   true,
-		},
-	)
-	return helpdialog
+	return MakeDialogForJail("", txtProgramName, []string{txtHelp}, nil, nil, nil, nil, nil)
 }
 
 func CreateActionsLogDialog(editWidget *edit.Widget) *dialog.Widget {
@@ -232,17 +203,27 @@ func MakeSnapshotJailDialog(jname string) *dialog.Widget {
 	return snapjaildialog
 }
 
-func MakeDialog(title string, txt []string,
+func MakeDialogForJail(jname string, title string, txt []string,
 	boolparnames []string, boolpardefaults []bool,
 	strparnames []string, strpardefaults []string,
-	okfunc func(boolparams []bool, strparams []string)) *dialog.Widget {
+	okfunc func(jname string, boolparams []bool, strparams []string)) *dialog.Widget {
 
-	var edlines *pile.Widget
+	var lines *pile.Widget
 	var containers []gowid.IContainerWidget
 
-	ntxt := len(txt)
-	nboolparams := len(boolparnames)
-	nstrparams := len(strparnames)
+	var ntxt int = 0
+	var nboolparams = 0
+	var nstrparams = 0
+
+	if txt != nil {
+		ntxt = len(txt)
+	}
+	if boolparnames != nil {
+		nboolparams = len(boolparnames)
+	}
+	if strparnames != nil {
+		nstrparams = len(strparnames)
+	}
 
 	var widtxt []*text.Widget
 	var widtxtst []*styled.Widget
@@ -258,9 +239,14 @@ func MakeDialog(title string, txt []string,
 	var strparams []string
 	var boolparams []bool
 
+	var btncancel dialog.Button
+	var btnok dialog.Button
+	var buttons []dialog.Button
+
 	htxt := text.New(title, text.Options{Align: gowid.HAlignMiddle{}})
 	htxtst := styled.New(htxt, gowid.MakePaletteRef("magenta"))
 	containers = append(containers, &gowid.ContainerWidget{IWidget: htxtst, D: gowid.RenderFlow{}})
+	containers = append(containers, &gowid.ContainerWidget{IWidget: divider.NewUnicode(), D: gowid.RenderFlow{}})
 
 	for i := 0; i < ntxt; i++ {
 		widtxt = append(widtxt, text.New(txt[i], text.Options{Align: gowid.HAlignLeft{}}))
@@ -282,24 +268,30 @@ func MakeDialog(title string, txt []string,
 		containers = append(containers, &gowid.ContainerWidget{IWidget: wideditstparams[i], D: gowid.RenderFlow{}})
 	}
 
-	edlines = pile.New(containers)
+	lines = pile.New(containers)
 
-	Ok := dialog.Button{
+	btnok = dialog.Button{
 		Msg: "OK",
 		Action: gowid.MakeWidgetCallback("execclonejail", gowid.WidgetChangedFunction(func(app gowid.IApp, w gowid.IWidget) {
-			okfunc(boolparams, strparams)
+			okfunc(jname, boolparams, strparams)
 		})),
 	}
-	Cancel := dialog.Button{
-		Msg: "Cancel",
+
+	if nboolparams < 1 && nstrparams < 1 && okfunc == nil {
+		btncancel = dialog.Button{Msg: "Close"}
+		buttons = append(buttons, btncancel)
+	} else {
+		btncancel = dialog.Button{Msg: "Cancel"}
+		buttons = append(buttons, btnok)
+		buttons = append(buttons, btncancel)
 	}
 
 	retdialog := dialog.New(
 		framed.NewSpace(
-			edlines,
+			lines,
 		),
 		dialog.Options{
-			Buttons:         []dialog.Button{Ok, Cancel},
+			Buttons:         buttons,
 			NoShadow:        true,
 			BackgroundStyle: gowid.MakePaletteRef("bluebg"),
 			BorderStyle:     gowid.MakePaletteRef("dialog"),
@@ -309,6 +301,11 @@ func MakeDialog(title string, txt []string,
 		},
 	)
 	return retdialog
+}
+
+func TestMakeDialog() {
+	dlg := MakeDialogForJail("jail1", "test dialog", nil, nil, nil, nil, nil, nil)
+	dlg.Open(viewHolder, gowid.RenderWithRatio{R: 0.6}, app)
 }
 
 func MakeCloneJailDialog(jname string, askhostname bool) *dialog.Widget {
@@ -442,41 +439,54 @@ func MakeEditJailDialog(jname string) *dialog.Widget {
 	return editjaildialog
 }
 
-func MakeDestroyJailConfirmationDialog(jname string) *dialog.Widget {
-	htxt := text.New("Destroy jail "+jname, text.Options{Align: gowid.HAlignMiddle{}})
-	htxtst := styled.New(htxt, gowid.MakePaletteRef("magenta"))
-	confirmtxt := text.New("\nReally destroy jail "+jname+"??", text.Options{Align: gowid.HAlignLeft{}})
-	confirmtxtst := styled.New(confirmtxt, gowid.MakePaletteRef("green"))
-	edlines := pile.New([]gowid.IContainerWidget{
-		&gowid.ContainerWidget{IWidget: htxtst, D: gowid.RenderFlow{}},
-		&gowid.ContainerWidget{IWidget: confirmtxtst, D: gowid.RenderFlow{}},
-	})
-	Ok := dialog.Button{
-		Msg: "OK",
-		Action: gowid.MakeWidgetCallback("execdeljail", gowid.WidgetChangedFunction(func(app gowid.IApp, w gowid.IWidget) {
-			cbsdDestroyJailDialog.Close(app)
-			DoDestroyJail(jname)
-		})),
-	}
-	Cancel := dialog.Button{
-		Msg: "Cancel",
-	}
-	destroyjaildialog := dialog.New(
-		framed.NewSpace(
-			edlines,
-		),
-		dialog.Options{
-			Buttons:         []dialog.Button{Ok, Cancel},
-			NoShadow:        true,
-			BackgroundStyle: gowid.MakePaletteRef("bluebg"),
-			BorderStyle:     gowid.MakePaletteRef("dialog"),
-			ButtonStyle:     gowid.MakePaletteRef("white-focus"),
-			Modal:           true,
-			FocusOnWidget:   true,
-		},
-	)
-	return destroyjaildialog
+func CBDestroyJailDialog(jname string, boolparams []bool, strparams []string) {
+	log.Infof("CBDestroyJailDialog: " + jname)
+	cbsdDestroyJailDialog.Close(app)
+	DoDestroyJail(jname)
 }
+
+func MakeDestroyJailConfirmationDialog(jname string) *dialog.Widget {
+	return MakeDialogForJail(jname, "Destroy jail "+jname, []string{"Really destroy jail " + jname + "??"},
+		nil, nil, nil, nil, CBDestroyJailDialog)
+}
+
+/*
+	func MakeDestroyJailConfirmationDialog(jname string) *dialog.Widget {
+		htxt := text.New("Destroy jail "+jname, text.Options{Align: gowid.HAlignMiddle{}})
+		htxtst := styled.New(htxt, gowid.MakePaletteRef("magenta"))
+		confirmtxt := text.New("\nReally destroy jail "+jname+"??", text.Options{Align: gowid.HAlignLeft{}})
+		confirmtxtst := styled.New(confirmtxt, gowid.MakePaletteRef("green"))
+		edlines := pile.New([]gowid.IContainerWidget{
+			&gowid.ContainerWidget{IWidget: htxtst, D: gowid.RenderFlow{}},
+			&gowid.ContainerWidget{IWidget: confirmtxtst, D: gowid.RenderFlow{}},
+		})
+		Ok := dialog.Button{
+			Msg: "OK",
+			Action: gowid.MakeWidgetCallback("execdeljail", gowid.WidgetChangedFunction(func(app gowid.IApp, w gowid.IWidget) {
+				cbsdDestroyJailDialog.Close(app)
+				DoDestroyJail(jname)
+			})),
+		}
+		Cancel := dialog.Button{
+			Msg: "Cancel",
+		}
+		destroyjaildialog := dialog.New(
+			framed.NewSpace(
+				edlines,
+			),
+			dialog.Options{
+				Buttons:         []dialog.Button{Ok, Cancel},
+				NoShadow:        true,
+				BackgroundStyle: gowid.MakePaletteRef("bluebg"),
+				BorderStyle:     gowid.MakePaletteRef("dialog"),
+				ButtonStyle:     gowid.MakePaletteRef("white-focus"),
+				Modal:           true,
+				FocusOnWidget:   true,
+			},
+		)
+		return destroyjaildialog
+	}
+*/
 
 func MakeCbsdActionsMenu() map[string][]gowid.IWidget {
 	actions := make(map[string][]gowid.IWidget, 0)
@@ -1269,6 +1279,8 @@ func (h handler) UnhandledInput(app gowid.IApp, ev interface{}) bool {
 			RunMenuAction((&Jail{}).GetBottomMenuText2()[9]) // List Snapshots
 		case tcell.KeyF12:
 			RunMenuAction((&Jail{}).GetBottomMenuText2()[10]) // Start/Stop
+		case tcell.KeyF9:
+			TestMakeDialog()
 		default:
 			handled = false
 		}
