@@ -351,7 +351,6 @@ func (jail *Jail) OpenDestroyDialog(viewHolder *holder.Widget, app *gowid.App) {
 		[]string{"Really destroy jail " + jail.Jname + "??"},
 		nil, nil, nil, nil,
 		func(jname string, boolparams []bool, strparams []string) {
-			//log.Infof("CBDestroyJailDialog: " + jname)
 			cbsdDestroyJailDialog.Close(app)
 			jail.Destroy()
 		},

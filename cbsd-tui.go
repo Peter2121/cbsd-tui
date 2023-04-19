@@ -497,25 +497,6 @@ func DoSnapshotJail(jname string, snapname string) {
 	ExecCommand(txtheader, command, args)
 }
 
-func DoDestroyJail(jname string) {
-	// cbsd jdestroy jname=nim1
-	var command string
-	txtheader := "Destroying jail " + jname + "...\n"
-	args := make([]string, 0)
-	if USE_DOAS {
-		args = append(args, "cbsd")
-	}
-	args = append(args, "jdestroy")
-	args = append(args, "jname="+jname)
-	if USE_DOAS {
-		command = doasProgram
-	} else {
-		command = cbsdProgram
-	}
-	ExecCommand(txtheader, command, args)
-	RefreshJailList()
-}
-
 func DoEditJail(jname string, astart bool, version string, ip string) {
 	jail := GetJailByName(jname)
 	if jail == nil {
