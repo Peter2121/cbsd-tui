@@ -94,7 +94,7 @@ var cbsdActionsDialog *dialog.Widget
 // var cbsdCloneJailDialog *dialog.Widget
 // var cbsdSnapshotJailDialog *dialog.Widget
 // var cbsdDestroyJailDialog *dialog.Widget
-var cbsdEditJailDialog *dialog.Widget
+// var cbsdEditJailDialog *dialog.Widget
 var cbsdListJails *list.Widget
 
 var app *gowid.App
@@ -299,7 +299,7 @@ func OpenCloneJailDialog(jname string, viewHolder *holder.Widget, app *gowid.App
 		[]string{"New jail name: ", "New host name: ", "New IP address: "},
 		[]string{jname + "clone", jname, "DHCP"},
 		func(jname string, boolparams []bool, strparams []string) {
-			log.Infof("CBSnapshotJailDialog: " + jname)
+			log.Infof("CBCloneJailDialog: " + jname)
 			cbsdCloneJailDialog.Close(app)
 			DoCloneJail(jname, strparams[0], strparams[1], strparams[2])
 		},
@@ -307,83 +307,43 @@ func OpenCloneJailDialog(jname string, viewHolder *holder.Widget, app *gowid.App
 	cbsdCloneJailDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
 }
 
-func MakeEditJailDialog(jname string) *dialog.Widget {
+func OpenEditJailDialog(jname string, viewHolder *holder.Widget, app *gowid.App) {
+	var cbsdEditJailDialog *dialog.Widget
 	jail := GetJailByName(jname)
 	if jail == nil {
 		log.Errorf("Cannot find jail: " + jname)
-		return nil
+		return
 	}
-
-	var edlines *pile.Widget = nil
-	var ednewip *edit.Widget = nil
-	var ednewipst *styled.Widget = nil
-
-	htxt := text.New("Edit jail "+jname, text.Options{Align: gowid.HAlignMiddle{}})
-	htxtst := styled.New(htxt, gowid.MakePaletteRef("magenta"))
-
-	cbastart := checkbox.New(jail.GetAutoStartBool())
-	labelastart := text.New("Autostart ")
-	labelastartst := styled.New(labelastart, gowid.MakePaletteRef("green"))
-	astartgrp := hpadding.New(
-		columns.NewFixed(labelastartst, cbastart),
-		gowid.HAlignLeft{},
-		gowid.RenderFixed{},
-	)
-
-	ednewversion := edit.New(edit.Options{Caption: "Version: ", Text: jail.GetVer()})
-	ednewversionst := styled.New(ednewversion, gowid.MakePaletteRef("green"))
 	if !jail.IsRunning() {
-		ednewip = edit.New(edit.Options{Caption: "IP address: ", Text: jail.GetAddr()})
-		ednewipst = styled.New(ednewip, gowid.MakePaletteRef("green"))
-		edlines = pile.New([]gowid.IContainerWidget{
-			&gowid.ContainerWidget{IWidget: htxtst, D: gowid.RenderFlow{}},
-			&gowid.ContainerWidget{IWidget: astartgrp, D: gowid.RenderFlow{}},
-			&gowid.ContainerWidget{IWidget: ednewversionst, D: gowid.RenderFlow{}},
-			&gowid.ContainerWidget{IWidget: ednewipst, D: gowid.RenderFlow{}},
-		})
+		cbsdEditJailDialog = MakeDialogForJail(
+			jname,
+			"Edit jail "+jname,
+			nil,
+			[]string{"Autostart "}, []bool{jail.GetAutoStartBool()},
+			[]string{"Version: ", "IP address: "},
+			[]string{jail.GetVer(), jail.GetAddr()},
+			func(jname string, boolparams []bool, strparams []string) {
+				log.Infof("CBEditJailDialog: " + jname)
+				cbsdEditJailDialog.Close(app)
+				DoEditJail(jname, boolparams[0], strparams[0], strparams[1])
+			},
+		)
 	} else {
-		edlines = pile.New([]gowid.IContainerWidget{
-			&gowid.ContainerWidget{IWidget: htxtst, D: gowid.RenderFlow{}},
-			&gowid.ContainerWidget{IWidget: astartgrp, D: gowid.RenderFlow{}},
-			&gowid.ContainerWidget{IWidget: ednewversionst, D: gowid.RenderFlow{}},
-		})
+		cbsdEditJailDialog = MakeDialogForJail(
+			jname,
+			"Edit jail "+jname,
+			nil,
+			[]string{"Autostart "}, []bool{jail.GetAutoStartBool()},
+			[]string{"Version: "},
+			[]string{jail.GetVer()},
+			func(jname string, boolparams []bool, strparams []string) {
+				log.Infof("CBEditJailDialog: " + jname)
+				cbsdEditJailDialog.Close(app)
+				DoEditJail(jname, boolparams[0], strparams[0], "")
+			},
+		)
 	}
-	Ok := dialog.Button{
-		Msg: "OK",
-		Action: gowid.MakeWidgetCallback("execeditjail", gowid.WidgetChangedFunction(func(app gowid.IApp, w gowid.IWidget) {
-			cbsdEditJailDialog.Close(app)
-			if ednewip != nil {
-				if (cbastart.IsChecked() != jail.GetAutoStartBool()) ||
-					(ednewversion.Text() != jail.GetVer()) ||
-					(ednewip.Text() != jail.GetAddr()) {
-					DoEditJail(jname, cbastart.IsChecked(), ednewversion.Text(), ednewip.Text())
-				}
-			} else {
-				if (cbastart.IsChecked() != jail.GetAutoStartBool()) ||
-					(ednewversion.Text() != jail.GetVer()) {
-					DoEditJail(jname, cbastart.IsChecked(), ednewversion.Text(), "")
-				}
-			}
-		})),
-	}
-	Cancel := dialog.Button{
-		Msg: "Cancel",
-	}
-	editjaildialog := dialog.New(
-		framed.NewSpace(
-			edlines,
-		),
-		dialog.Options{
-			Buttons:         []dialog.Button{Ok, Cancel},
-			NoShadow:        true,
-			BackgroundStyle: gowid.MakePaletteRef("bluebg"),
-			BorderStyle:     gowid.MakePaletteRef("dialog"),
-			ButtonStyle:     gowid.MakePaletteRef("white-focus"),
-			Modal:           true,
-			FocusOnWidget:   true,
-		},
-	)
-	return editjaildialog
+	cbsdEditJailDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
 }
 
 func OpenDestroyJailDialog(jname string, viewHolder *holder.Widget, app *gowid.App) {
@@ -565,14 +525,20 @@ func DoEditJail(jname string, astart bool, version string, ip string) {
 		log.Errorf("Cannot find jail: " + jname)
 		return
 	}
-	if astart {
-		jail.SetAstart(1)
-	} else {
-		jail.SetAstart(0)
+	if astart != jail.GetAutoStartBool() {
+		if astart {
+			jail.SetAstart(1)
+		} else {
+			jail.SetAstart(0)
+		}
 	}
-	jail.SetVer(version)
+	if version != jail.GetVer() {
+		jail.SetVer(version)
+	}
 	if ip != "" {
-		jail.SetAddr(ip)
+		if ip != jail.GetAddr() {
+			jail.SetAddr(ip)
+		}
 	}
 	_, err := jail.PutJailToDb(GetCbsdDbConnString(true))
 	if err != nil {
@@ -659,8 +625,7 @@ func ListSnapshotsJail(jname string) {
 }
 
 func EditJail(jname string) {
-	cbsdEditJailDialog = MakeEditJailDialog(jname)
-	cbsdEditJailDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
+	OpenEditJailDialog(jname, viewHolder, app)
 }
 
 func CloneJail(jname string) {
