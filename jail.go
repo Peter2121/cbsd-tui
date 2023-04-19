@@ -357,3 +357,38 @@ func (jail *Jail) OpenDestroyDialog(viewHolder *holder.Widget, app *gowid.App) {
 	)
 	cbsdDestroyJailDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
 }
+
+func (jail *Jail) Snapshot(snapname string) {
+	// cbsd jsnapshot mode=create snapname=gettimeofday jname=nim1
+	var command string
+	txtheader := "Creating jail snapshot...\n"
+	args := make([]string, 0)
+	if USE_DOAS {
+		args = append(args, "cbsd")
+	}
+	args = append(args, "jsnapshot")
+	args = append(args, "mode=create")
+	args = append(args, "snapname="+snapname)
+	args = append(args, "jname="+jail.Jname)
+	if USE_DOAS {
+		command = doasProgram
+	} else {
+		command = cbsdProgram
+	}
+	ExecCommand(txtheader, command, args)
+}
+
+func (jail *Jail) OpenSnapshotDialog(viewHolder *holder.Widget, app *gowid.App) {
+	var cbsdSnapshotJailDialog *dialog.Widget
+	cbsdSnapshotJailDialog = MakeDialogForJail(
+		jail.Jname,
+		"Snapshot jail "+jail.Jname,
+		nil, nil, nil,
+		[]string{"Snapshot name: "}, []string{"gettimeofday"},
+		func(jname string, boolparams []bool, strparams []string) {
+			cbsdSnapshotJailDialog.Close(app)
+			jail.Snapshot(strparams[0])
+		},
+	)
+	cbsdSnapshotJailDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
+}
