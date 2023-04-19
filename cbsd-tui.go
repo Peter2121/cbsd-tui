@@ -270,23 +270,6 @@ func MakeDialogForJail(jname string, title string, txt []string,
 	return retdialog
 }
 
-func OpenCloneJailDialog(jname string, viewHolder *holder.Widget, app *gowid.App) {
-	var cbsdCloneJailDialog *dialog.Widget
-	cbsdCloneJailDialog = MakeDialogForJail(
-		jname,
-		"Clone jail "+jname,
-		nil, nil, nil,
-		[]string{"New jail name: ", "New host name: ", "New IP address: "},
-		[]string{jname + "clone", jname, "DHCP"},
-		func(jname string, boolparams []bool, strparams []string) {
-			log.Infof("CBCloneJailDialog: " + jname)
-			cbsdCloneJailDialog.Close(app)
-			DoCloneJail(jname, strparams[0], strparams[1], strparams[2])
-		},
-	)
-	cbsdCloneJailDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
-}
-
 func OpenEditJailDialog(jname string, viewHolder *holder.Widget, app *gowid.App) {
 	var cbsdEditJailDialog *dialog.Widget
 	jail := GetJailByName(jname)
@@ -367,7 +350,7 @@ func RunActionOnJail(action string, jname string) {
 		case (&Jail{}).GetActionsMenuItems()[4]: // "Edit"
 			EditJail(jname)
 		case (&Jail{}).GetActionsMenuItems()[5]: // "Clone"
-			CloneJail(jname)
+			curjail.OpenCloneDialog(viewHolder, app)
 		case (&Jail{}).GetActionsMenuItems()[6]: // "Export"
 			curjail.Export(viewHolder, app)
 		case (&Jail{}).GetActionsMenuItems()[7]: // "Destroy"
@@ -402,7 +385,7 @@ func RunMenuAction(action string) {
 	case (&Jail{}).GetBottomMenuText2()[3]: // Edit
 		EditJail(jname)
 	case (&Jail{}).GetBottomMenuText2()[4]: // Clone
-		CloneJail(jname)
+		curjail.OpenCloneDialog(viewHolder, app)
 	case (&Jail{}).GetBottomMenuText2()[5]: // Export
 		curjail.Export(viewHolder, app)
 	case (&Jail{}).GetBottomMenuText2()[6]: // Create Snapshot
@@ -489,32 +472,6 @@ func DoEditJail(jname string, astart bool, version string, ip string) {
 	UpdateJailLine(jail)
 }
 
-func DoCloneJail(jname string, jnewjname string, jnewhname string, newip string) {
-	//log.Infof("Clone %s to %s (%s) IP %s", jname, jnewjname, jnewhname, newip)
-	// cbsd jclone old=jail1 new=jail1clone host_hostname=jail1clone.domain.local ip4_addr=DHCP checkstate=0
-	var command string
-	txtheader := "Cloning jail...\n"
-
-	args := make([]string, 0)
-	if USE_DOAS {
-		args = append(args, "cbsd")
-	}
-	args = append(args, "jclone")
-	args = append(args, "old="+jname)
-	args = append(args, "new="+jnewjname)
-	args = append(args, "host_hostname="+jnewhname)
-	args = append(args, "ip4_addr="+newip)
-	args = append(args, "checkstate=0")
-
-	if USE_DOAS {
-		command = doasProgram
-	} else {
-		command = cbsdProgram
-	}
-	ExecCommand(txtheader, command, args)
-	RefreshJailList()
-}
-
 func RefreshJailList() {
 	var err error
 	cbsdJailsFromDb, err = GetJailsFromDb(GetCbsdDbConnString(false))
@@ -541,10 +498,6 @@ func RefreshJailList() {
 
 func EditJail(jname string) {
 	OpenEditJailDialog(jname, viewHolder, app)
-}
-
-func CloneJail(jname string) {
-	OpenCloneJailDialog(jname, viewHolder, app)
 }
 
 func ListSnapshotsJail(jname string) {

@@ -7,6 +7,7 @@ import (
 	"github.com/gcla/gowid/widgets/dialog"
 	"github.com/gcla/gowid/widgets/holder"
 	_ "github.com/mattn/go-sqlite3"
+	log "github.com/sirupsen/logrus"
 )
 
 type Jail struct {
@@ -411,4 +412,47 @@ func (jail *Jail) OpenSnapshotDialog(viewHolder *holder.Widget, app *gowid.App) 
 		},
 	)
 	cbsdSnapshotJailDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
+}
+
+func (jail *Jail) Clone(jnewjname string, jnewhname string, newip string) {
+	//log.Infof("Clone %s to %s (%s) IP %s", jname, jnewjname, jnewhname, newip)
+	// cbsd jclone old=jail1 new=jail1clone host_hostname=jail1clone.domain.local ip4_addr=DHCP checkstate=0
+	var command string
+	txtheader := "Cloning jail...\n"
+
+	args := make([]string, 0)
+	if USE_DOAS {
+		args = append(args, "cbsd")
+	}
+	args = append(args, "jclone")
+	args = append(args, "old="+jail.Jname)
+	args = append(args, "new="+jnewjname)
+	args = append(args, "host_hostname="+jnewhname)
+	args = append(args, "ip4_addr="+newip)
+	args = append(args, "checkstate=0")
+
+	if USE_DOAS {
+		command = doasProgram
+	} else {
+		command = cbsdProgram
+	}
+	ExecCommand(txtheader, command, args)
+	RefreshJailList()
+}
+
+func (jail *Jail) OpenCloneDialog(viewHolder *holder.Widget, app *gowid.App) {
+	var cbsdCloneJailDialog *dialog.Widget
+	cbsdCloneJailDialog = MakeDialogForJail(
+		jail.Jname,
+		"Clone jail "+jail.Jname,
+		nil, nil, nil,
+		[]string{"New jail name: ", "New host name: ", "New IP address: "},
+		[]string{jail.Jname + "clone", jail.Jname, "DHCP"},
+		func(jname string, boolparams []bool, strparams []string) {
+			log.Infof("CBCloneJailDialog: " + jname)
+			cbsdCloneJailDialog.Close(app)
+			jail.Clone(strparams[0], strparams[1], strparams[2])
+		},
+	)
+	cbsdCloneJailDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
 }
