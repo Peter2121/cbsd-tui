@@ -90,8 +90,8 @@ var logText string = ""
 
 var cbsdActionsMenu map[string][]gowid.IWidget
 var cbsdActionsDialog *dialog.Widget
-var cbsdCloneJailDialog *dialog.Widget
 
+// var cbsdCloneJailDialog *dialog.Widget
 // var cbsdSnapshotJailDialog *dialog.Widget
 // var cbsdDestroyJailDialog *dialog.Widget
 var cbsdEditJailDialog *dialog.Widget
@@ -166,22 +166,6 @@ func CreateActionsLogDialog(editWidget *edit.Widget) *dialog.Widget {
 		},
 	)
 	return actionlogdialog
-}
-
-func OpenSnapshotJailDialog(jname string, viewHolder *holder.Widget, app *gowid.App) {
-	var cbsdSnapshotJailDialog *dialog.Widget
-	cbsdSnapshotJailDialog = MakeDialogForJail(
-		jname,
-		"Snapshot jail "+jname,
-		nil, nil, nil,
-		[]string{"Snapshot name: "}, []string{"gettimeofday"},
-		func(jname string, boolparams []bool, strparams []string) {
-			log.Infof("CBSnapshotJailDialog: " + jname)
-			cbsdSnapshotJailDialog.Close(app)
-			DoSnapshotJail(jname, strparams[0])
-		},
-	)
-	cbsdSnapshotJailDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
 }
 
 func MakeDialogForJail(jname string, title string, txt []string,
@@ -290,61 +274,37 @@ func MakeDialogForJail(jname string, title string, txt []string,
 	return retdialog
 }
 
-func TestMakeDialog() {
-	dlg := MakeDialogForJail("jail1", "test dialog", nil, nil, nil, nil, nil, nil)
-	dlg.Open(viewHolder, gowid.RenderWithRatio{R: 0.6}, app)
-}
-
-func MakeCloneJailDialog(jname string, askhostname bool) *dialog.Widget {
-	var edlines *pile.Widget
-	htxt := text.New("Clone jail "+jname, text.Options{Align: gowid.HAlignMiddle{}})
-	htxtst := styled.New(htxt, gowid.MakePaletteRef("magenta"))
-	ednewjname := edit.New(edit.Options{Caption: "New jail name: ", Text: jname + "clone"})
-	ednewjnamest := styled.New(ednewjname, gowid.MakePaletteRef("green"))
-	ednewhname := edit.New(edit.Options{Caption: "New host name: ", Text: jname})
-	ednewhnamest := styled.New(ednewhname, gowid.MakePaletteRef("green"))
-	ednewip := edit.New(edit.Options{Caption: "New IP address: ", Text: "DHCP"})
-	ednewipst := styled.New(ednewip, gowid.MakePaletteRef("green"))
-	if askhostname {
-		edlines = pile.New([]gowid.IContainerWidget{
-			&gowid.ContainerWidget{IWidget: htxtst, D: gowid.RenderFlow{}},
-			&gowid.ContainerWidget{IWidget: ednewjnamest, D: gowid.RenderFlow{}},
-			&gowid.ContainerWidget{IWidget: ednewhnamest, D: gowid.RenderFlow{}},
-			&gowid.ContainerWidget{IWidget: ednewipst, D: gowid.RenderFlow{}},
-		})
-	} else {
-		edlines = pile.New([]gowid.IContainerWidget{
-			&gowid.ContainerWidget{IWidget: htxtst, D: gowid.RenderFlow{}},
-			&gowid.ContainerWidget{IWidget: ednewjnamest, D: gowid.RenderFlow{}},
-			&gowid.ContainerWidget{IWidget: ednewipst, D: gowid.RenderFlow{}},
-		})
-	}
-	Ok := dialog.Button{
-		Msg: "OK",
-		Action: gowid.MakeWidgetCallback("execclonejail", gowid.WidgetChangedFunction(func(app gowid.IApp, w gowid.IWidget) {
-			cbsdCloneJailDialog.Close(app)
-			DoCloneJail(jname, ednewjname.Text(), ednewhname.Text(), ednewip.Text())
-		})),
-	}
-	Cancel := dialog.Button{
-		Msg: "Cancel",
-	}
-	clonejaildialog := dialog.New(
-		//edlines,
-		framed.NewSpace(
-			edlines,
-		),
-		dialog.Options{
-			Buttons:         []dialog.Button{Ok, Cancel},
-			NoShadow:        true,
-			BackgroundStyle: gowid.MakePaletteRef("bluebg"),
-			BorderStyle:     gowid.MakePaletteRef("dialog"),
-			ButtonStyle:     gowid.MakePaletteRef("white-focus"),
-			Modal:           true,
-			FocusOnWidget:   true,
+func OpenSnapshotJailDialog(jname string, viewHolder *holder.Widget, app *gowid.App) {
+	var cbsdSnapshotJailDialog *dialog.Widget
+	cbsdSnapshotJailDialog = MakeDialogForJail(
+		jname,
+		"Snapshot jail "+jname,
+		nil, nil, nil,
+		[]string{"Snapshot name: "}, []string{"gettimeofday"},
+		func(jname string, boolparams []bool, strparams []string) {
+			log.Infof("CBSnapshotJailDialog: " + jname)
+			cbsdSnapshotJailDialog.Close(app)
+			DoSnapshotJail(jname, strparams[0])
 		},
 	)
-	return clonejaildialog
+	cbsdSnapshotJailDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
+}
+
+func OpenCloneJailDialog(jname string, viewHolder *holder.Widget, app *gowid.App) {
+	var cbsdCloneJailDialog *dialog.Widget
+	cbsdCloneJailDialog = MakeDialogForJail(
+		jname,
+		"Clone jail "+jname,
+		nil, nil, nil,
+		[]string{"New jail name: ", "New host name: ", "New IP address: "},
+		[]string{jname + "clone", jname, "DHCP"},
+		func(jname string, boolparams []bool, strparams []string) {
+			log.Infof("CBSnapshotJailDialog: " + jname)
+			cbsdCloneJailDialog.Close(app)
+			DoCloneJail(jname, strparams[0], strparams[1], strparams[2])
+		},
+	)
+	cbsdCloneJailDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
 }
 
 func MakeEditJailDialog(jname string) *dialog.Widget {
@@ -672,8 +632,6 @@ func RefreshJailList() {
 }
 
 func SnapshotJail(jname string) {
-	//	cbsdSnapshotJailDialog = MakeSnapshotJailDialog(jname)
-	//	cbsdSnapshotJailDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
 	OpenSnapshotJailDialog(jname, viewHolder, app)
 }
 
@@ -706,8 +664,7 @@ func EditJail(jname string) {
 }
 
 func CloneJail(jname string) {
-	cbsdCloneJailDialog = MakeCloneJailDialog(jname, true)
-	cbsdCloneJailDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
+	OpenCloneJailDialog(jname, viewHolder, app)
 }
 
 func ExportJail(jname string) {
@@ -1233,8 +1190,6 @@ func (h handler) UnhandledInput(app gowid.IApp, ev interface{}) bool {
 			RunMenuAction((&Jail{}).GetBottomMenuText2()[9]) // List Snapshots
 		case tcell.KeyF12:
 			RunMenuAction((&Jail{}).GetBottomMenuText2()[10]) // Start/Stop
-		case tcell.KeyF9:
-			TestMakeDialog()
 		default:
 			handled = false
 		}
