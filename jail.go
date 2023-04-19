@@ -509,3 +509,22 @@ func (jail *Jail) OpenEditDialog(viewHolder *holder.Widget, app *gowid.App) {
 	}
 	cbsdEditJailDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
 }
+
+func (jail *Jail) ListSnapshots(*holder.Widget, *gowid.App) {
+	// cbsd jsnapshot mode=list jname=nim1
+	var command string
+	txtheader := "List jail snapshots...\n"
+	args := make([]string, 0)
+	if USE_DOAS {
+		args = append(args, "cbsd")
+	}
+	args = append(args, "jsnapshot")
+	args = append(args, "mode=list")
+	args = append(args, "jname="+jail.Jname)
+	if USE_DOAS {
+		command = doasProgram
+	} else {
+		command = cbsdProgram
+	}
+	ExecCommand(txtheader, command, args)
+}

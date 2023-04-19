@@ -305,7 +305,7 @@ func RunActionOnJail(action string, jname string) {
 		case (&Jail{}).GetActionsMenuItems()[1]: // "Create Snapshot"
 			curjail.OpenSnapshotDialog(viewHolder, app)
 		case (&Jail{}).GetActionsMenuItems()[2]: // "List Snapshots"
-			ListSnapshotsJail(jname)
+			curjail.ListSnapshots(viewHolder, app)
 		case (&Jail{}).GetActionsMenuItems()[3]: // "View"
 			ViewJail(jname)
 		case (&Jail{}).GetActionsMenuItems()[4]: // "Edit"
@@ -354,7 +354,7 @@ func RunMenuAction(action string) {
 	case (&Jail{}).GetBottomMenuText2()[7]: // Destroy
 		curjail.OpenDestroyDialog(viewHolder, app)
 	case (&Jail{}).GetBottomMenuText2()[9]: // List Snapshots
-		ListSnapshotsJail(jname)
+		curjail.ListSnapshots(viewHolder, app)
 	case (&Jail{}).GetBottomMenuText2()[10]: // Start/Stop
 		StartStopJail(jname)
 	}
@@ -427,25 +427,6 @@ func RefreshJailList() {
 	cbsdListWalker = list.NewSimpleListWalker(cbsdListGrid)
 	cbsdListJails.SetWalker(cbsdListWalker, app)
 	SetJailListFocus()
-}
-
-func ListSnapshotsJail(jname string) {
-	// cbsd jsnapshot mode=list jname=nim1
-	var command string
-	txtheader := "List jail snapshots...\n"
-	args := make([]string, 0)
-	if USE_DOAS {
-		args = append(args, "cbsd")
-	}
-	args = append(args, "jsnapshot")
-	args = append(args, "mode=list")
-	args = append(args, "jname="+jname)
-	if USE_DOAS {
-		command = doasProgram
-	} else {
-		command = cbsdProgram
-	}
-	ExecCommand(txtheader, command, args)
 }
 
 func GetJailStatus(jname string) string {
