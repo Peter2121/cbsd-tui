@@ -91,8 +91,8 @@ var logText string = ""
 var cbsdActionsMenu map[string][]gowid.IWidget
 var cbsdActionsDialog *dialog.Widget
 var cbsdCloneJailDialog *dialog.Widget
-var cbsdSnapshotJailDialog *dialog.Widget
 
+// var cbsdSnapshotJailDialog *dialog.Widget
 // var cbsdDestroyJailDialog *dialog.Widget
 var cbsdEditJailDialog *dialog.Widget
 var cbsdListJails *list.Widget
@@ -168,40 +168,20 @@ func CreateActionsLogDialog(editWidget *edit.Widget) *dialog.Widget {
 	return actionlogdialog
 }
 
-func MakeSnapshotJailDialog(jname string) *dialog.Widget {
-	htxt := text.New("Snapshot jail "+jname, text.Options{Align: gowid.HAlignMiddle{}})
-	htxtst := styled.New(htxt, gowid.MakePaletteRef("magenta"))
-	edsnapname := edit.New(edit.Options{Caption: "Snapshot name: ", Text: "gettimeofday"})
-	edsnapnamest := styled.New(edsnapname, gowid.MakePaletteRef("green"))
-	edlines := pile.New([]gowid.IContainerWidget{
-		&gowid.ContainerWidget{IWidget: htxtst, D: gowid.RenderFlow{}},
-		&gowid.ContainerWidget{IWidget: edsnapnamest, D: gowid.RenderFlow{}},
-	})
-	Ok := dialog.Button{
-		Msg: "OK",
-		Action: gowid.MakeWidgetCallback("execsnapjail", gowid.WidgetChangedFunction(func(app gowid.IApp, w gowid.IWidget) {
+func OpenSnapshotJailDialog(jname string, viewHolder *holder.Widget, app *gowid.App) {
+	var cbsdSnapshotJailDialog *dialog.Widget
+	cbsdSnapshotJailDialog = MakeDialogForJail(
+		jname,
+		"Snapshot jail "+jname,
+		nil, nil, nil,
+		[]string{"Snapshot name: "}, []string{"gettimeofday"},
+		func(jname string, boolparams []bool, strparams []string) {
+			log.Infof("CBSnapshotJailDialog: " + jname)
 			cbsdSnapshotJailDialog.Close(app)
-			DoSnapshotJail(jname, edsnapname.Text())
-		})),
-	}
-	Cancel := dialog.Button{
-		Msg: "Cancel",
-	}
-	snapjaildialog := dialog.New(
-		framed.NewSpace(
-			edlines,
-		),
-		dialog.Options{
-			Buttons:         []dialog.Button{Ok, Cancel},
-			NoShadow:        true,
-			BackgroundStyle: gowid.MakePaletteRef("bluebg"),
-			BorderStyle:     gowid.MakePaletteRef("dialog"),
-			ButtonStyle:     gowid.MakePaletteRef("white-focus"),
-			Modal:           true,
-			FocusOnWidget:   true,
+			DoSnapshotJail(jname, strparams[0])
 		},
 	)
-	return snapjaildialog
+	cbsdSnapshotJailDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
 }
 
 func MakeDialogForJail(jname string, title string, txt []string,
@@ -274,6 +254,12 @@ func MakeDialogForJail(jname string, title string, txt []string,
 	btnok = dialog.Button{
 		Msg: "OK",
 		Action: gowid.MakeWidgetCallback("execclonejail", gowid.WidgetChangedFunction(func(app gowid.IApp, w gowid.IWidget) {
+			for i := 0; i < nboolparams; i++ {
+				boolparams = append(boolparams, widcheck[i].IsChecked())
+			}
+			for i := 0; i < nstrparams; i++ {
+				strparams = append(strparams, wideditparams[i].Text())
+			}
 			okfunc(jname, boolparams, strparams)
 		})),
 	}
@@ -455,44 +441,6 @@ func OpenDestroyJailDialog(jname string, viewHolder *holder.Widget, app *gowid.A
 	)
 	cbsdDestroyJailDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
 }
-
-/*
-	func MakeDestroyJailConfirmationDialog(jname string) *dialog.Widget {
-		htxt := text.New("Destroy jail "+jname, text.Options{Align: gowid.HAlignMiddle{}})
-		htxtst := styled.New(htxt, gowid.MakePaletteRef("magenta"))
-		confirmtxt := text.New("\nReally destroy jail "+jname+"??", text.Options{Align: gowid.HAlignLeft{}})
-		confirmtxtst := styled.New(confirmtxt, gowid.MakePaletteRef("green"))
-		edlines := pile.New([]gowid.IContainerWidget{
-			&gowid.ContainerWidget{IWidget: htxtst, D: gowid.RenderFlow{}},
-			&gowid.ContainerWidget{IWidget: confirmtxtst, D: gowid.RenderFlow{}},
-		})
-		Ok := dialog.Button{
-			Msg: "OK",
-			Action: gowid.MakeWidgetCallback("execdeljail", gowid.WidgetChangedFunction(func(app gowid.IApp, w gowid.IWidget) {
-				cbsdDestroyJailDialog.Close(app)
-				DoDestroyJail(jname)
-			})),
-		}
-		Cancel := dialog.Button{
-			Msg: "Cancel",
-		}
-		destroyjaildialog := dialog.New(
-			framed.NewSpace(
-				edlines,
-			),
-			dialog.Options{
-				Buttons:         []dialog.Button{Ok, Cancel},
-				NoShadow:        true,
-				BackgroundStyle: gowid.MakePaletteRef("bluebg"),
-				BorderStyle:     gowid.MakePaletteRef("dialog"),
-				ButtonStyle:     gowid.MakePaletteRef("white-focus"),
-				Modal:           true,
-				FocusOnWidget:   true,
-			},
-		)
-		return destroyjaildialog
-	}
-*/
 
 func MakeCbsdActionsMenu() map[string][]gowid.IWidget {
 	actions := make(map[string][]gowid.IWidget, 0)
@@ -724,8 +672,9 @@ func RefreshJailList() {
 }
 
 func SnapshotJail(jname string) {
-	cbsdSnapshotJailDialog = MakeSnapshotJailDialog(jname)
-	cbsdSnapshotJailDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
+	//	cbsdSnapshotJailDialog = MakeSnapshotJailDialog(jname)
+	//	cbsdSnapshotJailDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
+	OpenSnapshotJailDialog(jname, viewHolder, app)
 }
 
 func DestroyJail(jname string) {
