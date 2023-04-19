@@ -270,6 +270,7 @@ func MakeDialogForJail(jname string, title string, txt []string,
 	return retdialog
 }
 
+/*
 func OpenEditJailDialog(jname string, viewHolder *holder.Widget, app *gowid.App) {
 	var cbsdEditJailDialog *dialog.Widget
 	jail := GetJailByName(jname)
@@ -308,6 +309,7 @@ func OpenEditJailDialog(jname string, viewHolder *holder.Widget, app *gowid.App)
 	}
 	cbsdEditJailDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
 }
+*/
 
 func MakeCbsdActionsMenu() map[string][]gowid.IWidget {
 	actions := make(map[string][]gowid.IWidget, 0)
@@ -348,7 +350,7 @@ func RunActionOnJail(action string, jname string) {
 		case (&Jail{}).GetActionsMenuItems()[3]: // "View"
 			ViewJail(jname)
 		case (&Jail{}).GetActionsMenuItems()[4]: // "Edit"
-			EditJail(jname)
+			curjail.OpenEditDialog(viewHolder, app)
 		case (&Jail{}).GetActionsMenuItems()[5]: // "Clone"
 			curjail.OpenCloneDialog(viewHolder, app)
 		case (&Jail{}).GetActionsMenuItems()[6]: // "Export"
@@ -383,7 +385,7 @@ func RunMenuAction(action string) {
 	case (&Jail{}).GetBottomMenuText2()[2]: // View
 		ViewJail(jname)
 	case (&Jail{}).GetBottomMenuText2()[3]: // Edit
-		EditJail(jname)
+		curjail.OpenEditDialog(viewHolder, app)
 	case (&Jail{}).GetBottomMenuText2()[4]: // Clone
 		curjail.OpenCloneDialog(viewHolder, app)
 	case (&Jail{}).GetBottomMenuText2()[5]: // Export
@@ -444,6 +446,7 @@ func ViewJail(jname string) {
 	app.RedrawTerminal()
 }
 
+/*
 func DoEditJail(jname string, astart bool, version string, ip string) {
 	jail := GetJailByName(jname)
 	if jail == nil {
@@ -471,6 +474,7 @@ func DoEditJail(jname string, astart bool, version string, ip string) {
 	}
 	UpdateJailLine(jail)
 }
+*/
 
 func RefreshJailList() {
 	var err error
@@ -496,9 +500,11 @@ func RefreshJailList() {
 	SetJailListFocus()
 }
 
+/*
 func EditJail(jname string) {
 	OpenEditJailDialog(jname, viewHolder, app)
 }
+*/
 
 func ListSnapshotsJail(jname string) {
 	// cbsd jsnapshot mode=list jname=nim1

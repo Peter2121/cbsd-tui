@@ -7,7 +7,6 @@ import (
 	"github.com/gcla/gowid/widgets/dialog"
 	"github.com/gcla/gowid/widgets/holder"
 	_ "github.com/mattn/go-sqlite3"
-	log "github.com/sirupsen/logrus"
 )
 
 type Jail struct {
@@ -449,10 +448,64 @@ func (jail *Jail) OpenCloneDialog(viewHolder *holder.Widget, app *gowid.App) {
 		[]string{"New jail name: ", "New host name: ", "New IP address: "},
 		[]string{jail.Jname + "clone", jail.Jname, "DHCP"},
 		func(jname string, boolparams []bool, strparams []string) {
-			log.Infof("CBCloneJailDialog: " + jname)
 			cbsdCloneJailDialog.Close(app)
 			jail.Clone(strparams[0], strparams[1], strparams[2])
 		},
 	)
 	cbsdCloneJailDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
+}
+
+func (jail *Jail) Edit(astart bool, version string, ip string) {
+	if astart != jail.GetAutoStartBool() {
+		if astart {
+			jail.SetAstart(1)
+		} else {
+			jail.SetAstart(0)
+		}
+	}
+	if version != jail.GetVer() {
+		jail.SetVer(version)
+	}
+	if ip != "" {
+		if ip != jail.GetAddr() {
+			jail.SetAddr(ip)
+		}
+	}
+	_, err := jail.PutJailToDb(GetCbsdDbConnString(true))
+	if err != nil {
+		panic(err)
+	}
+	UpdateJailLine(jail)
+}
+
+func (jail *Jail) OpenEditDialog(viewHolder *holder.Widget, app *gowid.App) {
+	var cbsdEditJailDialog *dialog.Widget
+	if !jail.IsRunning() {
+		cbsdEditJailDialog = MakeDialogForJail(
+			jail.Jname,
+			"Edit jail "+jail.Jname,
+			nil,
+			[]string{"Autostart "}, []bool{jail.GetAutoStartBool()},
+			[]string{"Version: ", "IP address: "},
+			[]string{jail.GetVer(), jail.GetAddr()},
+			func(jname string, boolparams []bool, strparams []string) {
+				cbsdEditJailDialog.Close(app)
+				jail.Edit(boolparams[0], strparams[0], strparams[1])
+			},
+		)
+	} else {
+		cbsdEditJailDialog = MakeDialogForJail(
+			jail.Jname,
+			"Edit jail "+jail.Jname,
+			nil,
+			[]string{"Autostart "}, []bool{jail.GetAutoStartBool()},
+			[]string{"Version: "},
+			[]string{jail.GetVer()},
+			func(jname string, boolparams []bool, strparams []string) {
+				cbsdEditJailDialog.Close(app)
+				jail.Edit(boolparams[0], strparams[0], "")
+			},
+		)
+	}
+	cbsdEditJailDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
 }
