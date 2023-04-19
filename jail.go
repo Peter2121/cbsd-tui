@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"os"
 
 	"github.com/gcla/gowid"
 	"github.com/gcla/gowid/widgets/dialog"
@@ -536,4 +537,54 @@ func (jail *Jail) View(viewHolder *holder.Widget, app *gowid.App) {
 	outdlg.Open(viewHolder, gowid.RenderWithRatio{R: 0.7}, app)
 	viewspace.SetText(jail.GetJailViewString(), app)
 	app.RedrawTerminal()
+}
+
+func (jail *Jail) StartStop(viewHolder *holder.Widget, app *gowid.App) {
+	txtheader := ""
+	var args []string
+	var command string
+
+	if jail.IsRunning() {
+		if cbsdJailConsoleActive == jail.Jname { // TODO: don't use cbsdJailConsoleActive directly
+			SendTerminalCommand("exit")
+			cbsdJailConsoleActive = ""
+		}
+		txtheader = "Stopping jail...\n"
+		if USE_DOAS {
+			args = append(args, cbsdProgram)
+		}
+		args = append(args, "jstop")
+		args = append(args, "inter=1")
+		args = append(args, "jname="+jail.Jname)
+		if USE_DOAS {
+			command = doasProgram
+		} else {
+			command = cbsdProgram
+		}
+		ExecCommand(txtheader, command, args)
+	} else if jail.IsRunnable() {
+		txtheader = "Starting jail...\n"
+		/*
+			if USE_DOAS {
+				args = append(args, "cbsd")
+			}
+			args = append(args, "jstart")
+			args = append(args, "inter=1")
+			args = append(args, "quiet=1") // Temporary workaround for lock reading stdout when jail service use stderr
+			args = append(args, "jname="+jail.Name)
+		*/
+		command = shellProgram
+		script, err := CreateScriptStartJail(jail.Jname)
+		if err != nil {
+			LogError("Cannot create jstart script", err)
+			if script != "" {
+				os.Remove(script)
+			}
+			return
+		}
+		defer os.Remove(script)
+		args = append(args, script)
+		ExecShellCommand(txtheader, command, args, logJstart)
+	}
+	UpdateJailStatus(jail)
 }

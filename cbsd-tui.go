@@ -299,7 +299,7 @@ func RunActionOnJail(action string, jname string) {
 
 	curjail := GetJailByName(jname)
 	if strings.Contains((&Jail{}).GetActionsMenuItems()[0], action) {
-		StartStopJail(jname)
+		curjail.StartStop(viewHolder, app)
 	} else {
 		switch action {
 		case (&Jail{}).GetActionsMenuItems()[1]: // "Create Snapshot"
@@ -356,7 +356,7 @@ func RunMenuAction(action string) {
 	case (&Jail{}).GetBottomMenuText2()[9]: // List Snapshots
 		curjail.ListSnapshots(viewHolder, app)
 	case (&Jail{}).GetBottomMenuText2()[10]: // Start/Stop
-		StartStopJail(jname)
+		curjail.StartStop(viewHolder, app)
 	}
 }
 
@@ -603,63 +603,8 @@ func ExecShellCommand(title string, command string, args []string, logfile strin
 	chanfread <- 1
 }
 
-func StartStopJail(jname string) {
-	txtheader := ""
-	//var cmd string
-	//stdbuf := "/usr/bin/stdbuf"
-	//shell := "/bin/sh"
-	//logJstart := "/var/log/jstart.log"
-	var args []string
-	var command string
-
-	jail := GetJailByName(jname)
-	if jail == nil {
-		log.Errorf("Cannot find jail: " + jname)
-		return
-	}
-	if jail.IsRunning() {
-		if cbsdJailConsoleActive == jname {
-			SendTerminalCommand("exit")
-			cbsdJailConsoleActive = ""
-		}
-		txtheader = "Stopping jail...\n"
-		if USE_DOAS {
-			args = append(args, cbsdProgram)
-		}
-		args = append(args, "jstop")
-		args = append(args, "inter=1")
-		args = append(args, "jname="+jname)
-		if USE_DOAS {
-			command = doasProgram
-		} else {
-			command = cbsdProgram
-		}
-		ExecCommand(txtheader, command, args)
-	} else if jail.IsRunnable() {
-		txtheader = "Starting jail...\n"
-		/*
-			if USE_DOAS {
-				args = append(args, "cbsd")
-			}
-			args = append(args, "jstart")
-			args = append(args, "inter=1")
-			args = append(args, "quiet=1") // Temporary workaround for lock reading stdout when jail service use stderr
-			args = append(args, "jname="+jail.Name)
-		*/
-		command = shellProgram
-		script, err := CreateScriptStartJail(jname)
-		if err != nil {
-			log.Errorf("Cannot create jstart script: %w", err)
-			if script != "" {
-				os.Remove(script)
-			}
-			return
-		}
-		defer os.Remove(script)
-		args = append(args, script)
-		ExecShellCommand(txtheader, command, args, logJstart)
-	}
-	UpdateJailStatus(jail)
+func LogError(strerr string, err error) {
+	log.Errorf(strerr+": %w", err)
 }
 
 func CreateScriptStartJail(jname string) (string, error) {
