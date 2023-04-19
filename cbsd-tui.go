@@ -270,47 +270,6 @@ func MakeDialogForJail(jname string, title string, txt []string,
 	return retdialog
 }
 
-/*
-func OpenEditJailDialog(jname string, viewHolder *holder.Widget, app *gowid.App) {
-	var cbsdEditJailDialog *dialog.Widget
-	jail := GetJailByName(jname)
-	if jail == nil {
-		log.Errorf("Cannot find jail: " + jname)
-		return
-	}
-	if !jail.IsRunning() {
-		cbsdEditJailDialog = MakeDialogForJail(
-			jname,
-			"Edit jail "+jname,
-			nil,
-			[]string{"Autostart "}, []bool{jail.GetAutoStartBool()},
-			[]string{"Version: ", "IP address: "},
-			[]string{jail.GetVer(), jail.GetAddr()},
-			func(jname string, boolparams []bool, strparams []string) {
-				log.Infof("CBEditJailDialog: " + jname)
-				cbsdEditJailDialog.Close(app)
-				DoEditJail(jname, boolparams[0], strparams[0], strparams[1])
-			},
-		)
-	} else {
-		cbsdEditJailDialog = MakeDialogForJail(
-			jname,
-			"Edit jail "+jname,
-			nil,
-			[]string{"Autostart "}, []bool{jail.GetAutoStartBool()},
-			[]string{"Version: "},
-			[]string{jail.GetVer()},
-			func(jname string, boolparams []bool, strparams []string) {
-				log.Infof("CBEditJailDialog: " + jname)
-				cbsdEditJailDialog.Close(app)
-				DoEditJail(jname, boolparams[0], strparams[0], "")
-			},
-		)
-	}
-	cbsdEditJailDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
-}
-*/
-
 func MakeCbsdActionsMenu() map[string][]gowid.IWidget {
 	actions := make(map[string][]gowid.IWidget, 0)
 	for _, j := range cbsdJailsFromDb {
@@ -446,36 +405,6 @@ func ViewJail(jname string) {
 	app.RedrawTerminal()
 }
 
-/*
-func DoEditJail(jname string, astart bool, version string, ip string) {
-	jail := GetJailByName(jname)
-	if jail == nil {
-		log.Errorf("Cannot find jail: " + jname)
-		return
-	}
-	if astart != jail.GetAutoStartBool() {
-		if astart {
-			jail.SetAstart(1)
-		} else {
-			jail.SetAstart(0)
-		}
-	}
-	if version != jail.GetVer() {
-		jail.SetVer(version)
-	}
-	if ip != "" {
-		if ip != jail.GetAddr() {
-			jail.SetAddr(ip)
-		}
-	}
-	_, err := jail.PutJailToDb(GetCbsdDbConnString(true))
-	if err != nil {
-		panic(err)
-	}
-	UpdateJailLine(jail)
-}
-*/
-
 func RefreshJailList() {
 	var err error
 	cbsdJailsFromDb, err = GetJailsFromDb(GetCbsdDbConnString(false))
@@ -499,12 +428,6 @@ func RefreshJailList() {
 	cbsdListJails.SetWalker(cbsdListWalker, app)
 	SetJailListFocus()
 }
-
-/*
-func EditJail(jname string) {
-	OpenEditJailDialog(jname, viewHolder, app)
-}
-*/
 
 func ListSnapshotsJail(jname string) {
 	// cbsd jsnapshot mode=list jname=nim1
