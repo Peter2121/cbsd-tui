@@ -369,7 +369,7 @@ func RunActionOnJail(action string, jname string) {
 		case (&Jail{}).GetActionsMenuItems()[5]: // "Clone"
 			CloneJail(jname)
 		case (&Jail{}).GetActionsMenuItems()[6]: // "Export"
-			ExportJail(jname)
+			curjail.Export(viewHolder, app)
 		case (&Jail{}).GetActionsMenuItems()[7]: // "Destroy"
 			curjail.OpenDestroyDialog(viewHolder, app)
 		}
@@ -404,7 +404,7 @@ func RunMenuAction(action string) {
 	case (&Jail{}).GetBottomMenuText2()[4]: // Clone
 		CloneJail(jname)
 	case (&Jail{}).GetBottomMenuText2()[5]: // Export
-		ExportJail(jname)
+		curjail.Export(viewHolder, app)
 	case (&Jail{}).GetBottomMenuText2()[6]: // Create Snapshot
 		curjail.OpenSnapshotDialog(viewHolder, app)
 	case (&Jail{}).GetBottomMenuText2()[7]: // Destroy
@@ -558,26 +558,6 @@ func ListSnapshotsJail(jname string) {
 	args = append(args, "jsnapshot")
 	args = append(args, "mode=list")
 	args = append(args, "jname="+jname)
-	if USE_DOAS {
-		command = doasProgram
-	} else {
-		command = cbsdProgram
-	}
-	ExecCommand(txtheader, command, args)
-}
-
-func ExportJail(jname string) {
-	// cbsd jexport jname=nim1
-	var command string
-	txtheader := "Exporting jail...\n"
-
-	args := make([]string, 0)
-	if USE_DOAS {
-		args = append(args, "cbsd")
-	}
-	args = append(args, "jexport")
-	args = append(args, "jname="+jname)
-
 	if USE_DOAS {
 		command = doasProgram
 	} else {

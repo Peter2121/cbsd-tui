@@ -324,6 +324,26 @@ func (jail *Jail) UpdateJailFromDb(dbname string) (bool, error) {
 	return true, nil
 }
 
+func (jail *Jail) Export(*holder.Widget, *gowid.App) {
+	// cbsd jexport jname=nim1
+	var command string
+	txtheader := "Exporting jail...\n"
+
+	args := make([]string, 0)
+	if USE_DOAS {
+		args = append(args, "cbsd")
+	}
+	args = append(args, "jexport")
+	args = append(args, "jname="+jail.Jname)
+
+	if USE_DOAS {
+		command = doasProgram
+	} else {
+		command = cbsdProgram
+	}
+	ExecCommand(txtheader, command, args)
+}
+
 func (jail *Jail) Destroy() {
 	// cbsd jdestroy jname=nim1
 	var command string
