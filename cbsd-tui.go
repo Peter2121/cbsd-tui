@@ -46,7 +46,7 @@ type PairString struct {
 	Value string
 }
 
-var USE_DOAS = true
+var USE_DOAS = false
 
 var txtProgramName = "CBSD-TUI"
 var txtHelp = `- To navigate in jails list use 'Up' and 'Down' keys or mouse
@@ -91,10 +91,6 @@ var logText string = ""
 var cbsdActionsMenu map[string][]gowid.IWidget
 var cbsdActionsDialog *dialog.Widget
 
-// var cbsdCloneJailDialog *dialog.Widget
-// var cbsdSnapshotJailDialog *dialog.Widget
-// var cbsdDestroyJailDialog *dialog.Widget
-// var cbsdEditJailDialog *dialog.Widget
 var cbsdListJails *list.Widget
 
 var app *gowid.App
@@ -605,6 +601,14 @@ func DestroyJail(jname string) {
 	OpenDestroyJailDialog(jname, viewHolder, app)
 }
 
+func EditJail(jname string) {
+	OpenEditJailDialog(jname, viewHolder, app)
+}
+
+func CloneJail(jname string) {
+	OpenCloneJailDialog(jname, viewHolder, app)
+}
+
 func ListSnapshotsJail(jname string) {
 	// cbsd jsnapshot mode=list jname=nim1
 	var command string
@@ -622,14 +626,6 @@ func ListSnapshotsJail(jname string) {
 		command = cbsdProgram
 	}
 	ExecCommand(txtheader, command, args)
-}
-
-func EditJail(jname string) {
-	OpenEditJailDialog(jname, viewHolder, app)
-}
-
-func CloneJail(jname string) {
-	OpenCloneJailDialog(jname, viewHolder, app)
 }
 
 func ExportJail(jname string) {
