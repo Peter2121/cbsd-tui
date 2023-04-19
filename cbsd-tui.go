@@ -360,18 +360,6 @@ func RunMenuAction(action string) {
 	}
 }
 
-func GetSelectedJailName() string {
-	curpos := GetSelectedPosition()
-	if curpos < 0 {
-		return ""
-	}
-	if len(cbsdJailsFromDb) < curpos {
-		return ""
-	}
-	jname := cbsdJailsFromDb[curpos].GetName()
-	return jname
-}
-
 func GetSelectedJail() *Jail {
 	curpos := GetSelectedPosition()
 	if curpos < 0 {
