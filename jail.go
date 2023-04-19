@@ -5,6 +5,7 @@ import (
 
 	"github.com/gcla/gowid"
 	"github.com/gcla/gowid/widgets/dialog"
+	"github.com/gcla/gowid/widgets/edit"
 	"github.com/gcla/gowid/widgets/holder"
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -527,4 +528,12 @@ func (jail *Jail) ListSnapshots(*holder.Widget, *gowid.App) {
 		command = cbsdProgram
 	}
 	ExecCommand(txtheader, command, args)
+}
+
+func (jail *Jail) View(viewHolder *holder.Widget, app *gowid.App) {
+	viewspace := edit.New(edit.Options{ReadOnly: true})
+	outdlg := CreateActionsLogDialog(viewspace)
+	outdlg.Open(viewHolder, gowid.RenderWithRatio{R: 0.7}, app)
+	viewspace.SetText(jail.GetJailViewString(), app)
+	app.RedrawTerminal()
 }

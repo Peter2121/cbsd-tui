@@ -307,7 +307,7 @@ func RunActionOnJail(action string, jname string) {
 		case (&Jail{}).GetActionsMenuItems()[2]: // "List Snapshots"
 			curjail.ListSnapshots(viewHolder, app)
 		case (&Jail{}).GetActionsMenuItems()[3]: // "View"
-			ViewJail(jname)
+			curjail.View(viewHolder, app)
 		case (&Jail{}).GetActionsMenuItems()[4]: // "Edit"
 			curjail.OpenEditDialog(viewHolder, app)
 		case (&Jail{}).GetActionsMenuItems()[5]: // "Clone"
@@ -342,7 +342,7 @@ func RunMenuAction(action string) {
 	case (&Jail{}).GetBottomMenuText2()[1]: // Actions Menu
 		OpenJailActionsMenu(jname)
 	case (&Jail{}).GetBottomMenuText2()[2]: // View
-		ViewJail(jname)
+		curjail.View(viewHolder, app)
 	case (&Jail{}).GetBottomMenuText2()[3]: // Edit
 		curjail.OpenEditDialog(viewHolder, app)
 	case (&Jail{}).GetBottomMenuText2()[4]: // Clone
@@ -386,23 +386,6 @@ func GetSelectedJail() *Jail {
 func GetSelectedPosition() int {
 	ifocus := cbsdListJails.Walker().Focus()
 	return int(ifocus.(list.ListPos)) - 1
-}
-
-func ViewJail(jname string) {
-	//jname := GetSelectedJailName()
-	jail := GetJailByName(jname)
-	result, err := jail.GetJailFromDbFull(GetCbsdDbConnString(false), jname)
-	if err != nil {
-		panic(err)
-	}
-	if !result {
-		panic(err)
-	}
-	viewspace := edit.New(edit.Options{ReadOnly: true})
-	outdlg := CreateActionsLogDialog(viewspace)
-	outdlg.Open(viewHolder, gowid.RenderWithRatio{R: 0.7}, app)
-	viewspace.SetText(jail.GetJailViewString(), app)
-	app.RedrawTerminal()
 }
 
 func RefreshJailList() {
@@ -916,7 +899,6 @@ func (h handler) UnhandledInput(app gowid.IApp, ev interface{}) bool {
 		case tcell.KeyF2:
 			RunMenuAction((&Jail{}).GetBottomMenuText2()[1]) // Actions Menu
 		case tcell.KeyF3:
-			//ViewJail()
 			RunMenuAction((&Jail{}).GetBottomMenuText2()[2]) // View
 		case tcell.KeyF4:
 			RunMenuAction((&Jail{}).GetBottomMenuText2()[3]) // Edit
