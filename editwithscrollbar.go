@@ -25,15 +25,15 @@ func NewEditWithScrollbar(e *edit.Widget) *EditWithScrollbar {
 	sb := vscroll.NewExt(vscroll.VerticalScrollbarUnicodeRunes)
 	res := &EditWithScrollbar{
 		columns.New([]gowid.IContainerWidget{
-			&gowid.ContainerWidget{e, gowid.RenderWithWeight{W: 1}},
-			&gowid.ContainerWidget{sb, gowid.RenderWithUnits{U: 1}},
+			&gowid.ContainerWidget{IWidget: e, D: gowid.RenderWithWeight{W: 1}},
+			&gowid.ContainerWidget{IWidget: sb, D: gowid.RenderWithUnits{U: 1}},
 		}),
 		e, sb, 0, 0,
 	}
-	sb.OnClickAbove(gowid.WidgetCallback{"cb", res.clickUp})
-	sb.OnClickBelow(gowid.WidgetCallback{"cb", res.clickDown})
-	sb.OnClickUpArrow(gowid.WidgetCallback{"cb", res.clickUpArrow})
-	sb.OnClickDownArrow(gowid.WidgetCallback{"cb", res.clickDownArrow})
+	sb.OnClickAbove(gowid.WidgetCallback{Name: "cb", WidgetChangedFunction: res.clickUp})
+	sb.OnClickBelow(gowid.WidgetCallback{Name: "cb", WidgetChangedFunction: res.clickDown})
+	sb.OnClickUpArrow(gowid.WidgetCallback{Name: "cb", WidgetChangedFunction: res.clickUpArrow})
+	sb.OnClickDownArrow(gowid.WidgetCallback{Name: "cb", WidgetChangedFunction: res.clickDownArrow})
 	return res
 }
 

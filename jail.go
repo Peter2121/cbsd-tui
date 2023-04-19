@@ -3,6 +3,9 @@ package main
 import (
 	"database/sql"
 
+	"github.com/gcla/gowid"
+	"github.com/gcla/gowid/widgets/dialog"
+	"github.com/gcla/gowid/widgets/holder"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -319,4 +322,39 @@ func (jail *Jail) UpdateJailFromDb(dbname string) (bool, error) {
 	}
 
 	return true, nil
+}
+
+func (jail *Jail) Destroy() {
+	// cbsd jdestroy jname=nim1
+	var command string
+	txtheader := "Destroying jail " + jail.Jname + "...\n"
+	args := make([]string, 0)
+	if USE_DOAS {
+		args = append(args, "cbsd")
+	}
+	args = append(args, "jdestroy")
+	args = append(args, "jname="+jail.Jname)
+	if USE_DOAS {
+		command = doasProgram
+	} else {
+		command = cbsdProgram
+	}
+	ExecCommand(txtheader, command, args)
+	RefreshJailList()
+}
+
+func (jail *Jail) OpenDestroyDialog(viewHolder *holder.Widget, app *gowid.App) {
+	var cbsdDestroyJailDialog *dialog.Widget
+	cbsdDestroyJailDialog = MakeDialogForJail(
+		jail.Jname,
+		"Destroy jail "+jail.Jname,
+		[]string{"Really destroy jail " + jail.Jname + "??"},
+		nil, nil, nil, nil,
+		func(jname string, boolparams []bool, strparams []string) {
+			//log.Infof("CBDestroyJailDialog: " + jname)
+			cbsdDestroyJailDialog.Close(app)
+			jail.Destroy()
+		},
+	)
+	cbsdDestroyJailDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
 }

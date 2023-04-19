@@ -46,7 +46,7 @@ type PairString struct {
 	Value string
 }
 
-var USE_DOAS = false
+var USE_DOAS = true
 
 var txtProgramName = "CBSD-TUI"
 var txtHelp = `- To navigate in jails list use 'Up' and 'Down' keys or mouse
@@ -342,22 +342,6 @@ func OpenEditJailDialog(jname string, viewHolder *holder.Widget, app *gowid.App)
 	cbsdEditJailDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
 }
 
-func OpenDestroyJailDialog(jname string, viewHolder *holder.Widget, app *gowid.App) {
-	var cbsdDestroyJailDialog *dialog.Widget
-	cbsdDestroyJailDialog = MakeDialogForJail(
-		jname,
-		"Destroy jail "+jname,
-		[]string{"Really destroy jail " + jname + "??"},
-		nil, nil, nil, nil,
-		func(jname string, boolparams []bool, strparams []string) {
-			log.Infof("CBDestroyJailDialog: " + jname)
-			cbsdDestroyJailDialog.Close(app)
-			DoDestroyJail(jname)
-		},
-	)
-	cbsdDestroyJailDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
-}
-
 func MakeCbsdActionsMenu() map[string][]gowid.IWidget {
 	actions := make(map[string][]gowid.IWidget, 0)
 	for _, j := range cbsdJailsFromDb {
@@ -385,6 +369,7 @@ func MakeCbsdJailActionsMenu(jname string) []gowid.IWidget {
 func RunActionOnJail(action string, jname string) {
 	log.Infof("Action: " + action + " on jail: " + jname)
 
+	curjail := GetJailByName(jname)
 	if strings.Contains((&Jail{}).GetActionsMenuItems()[0], action) {
 		StartStopJail(jname)
 	} else {
@@ -402,7 +387,7 @@ func RunActionOnJail(action string, jname string) {
 		case (&Jail{}).GetActionsMenuItems()[6]: // "Export"
 			ExportJail(jname)
 		case (&Jail{}).GetActionsMenuItems()[7]: // "Destroy"
-			DestroyJail(jname)
+			curjail.OpenDestroyDialog(viewHolder, app)
 		}
 	}
 }
@@ -421,7 +406,8 @@ func RunMenuAction(action string) {
 		app.Quit()
 	}
 
-	jname := GetSelectedJailName()
+	curjail := GetSelectedJail()
+	jname := curjail.GetName()
 	log.Infof("JailName: " + jname)
 
 	switch action {
@@ -438,7 +424,7 @@ func RunMenuAction(action string) {
 	case (&Jail{}).GetBottomMenuText2()[6]: // Create Snapshot
 		SnapshotJail(jname)
 	case (&Jail{}).GetBottomMenuText2()[7]: // Destroy
-		DestroyJail(jname)
+		curjail.OpenDestroyDialog(viewHolder, app)
 	case (&Jail{}).GetBottomMenuText2()[9]: // List Snapshots
 		ListSnapshotsJail(jname)
 	case (&Jail{}).GetBottomMenuText2()[10]: // Start/Stop
@@ -447,8 +433,7 @@ func RunMenuAction(action string) {
 }
 
 func GetSelectedJailName() string {
-	ifocus := cbsdListJails.Walker().Focus()
-	curpos := int(ifocus.(list.ListPos)) - 1
+	curpos := GetSelectedPosition()
 	if curpos < 0 {
 		return ""
 	}
@@ -457,6 +442,22 @@ func GetSelectedJailName() string {
 	}
 	jname := cbsdJailsFromDb[curpos].GetName()
 	return jname
+}
+
+func GetSelectedJail() *Jail {
+	curpos := GetSelectedPosition()
+	if curpos < 0 {
+		return nil
+	}
+	if len(cbsdJailsFromDb) < curpos {
+		return nil
+	}
+	return cbsdJailsFromDb[curpos]
+}
+
+func GetSelectedPosition() int {
+	ifocus := cbsdListJails.Walker().Focus()
+	return int(ifocus.(list.ListPos)) - 1
 }
 
 func ViewJail(jname string) {
@@ -595,10 +596,6 @@ func RefreshJailList() {
 
 func SnapshotJail(jname string) {
 	OpenSnapshotJailDialog(jname, viewHolder, app)
-}
-
-func DestroyJail(jname string) {
-	OpenDestroyJailDialog(jname, viewHolder, app)
 }
 
 func EditJail(jname string) {
