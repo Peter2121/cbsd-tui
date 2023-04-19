@@ -46,7 +46,7 @@ type PairString struct {
 	Value string
 }
 
-var USE_DOAS = false
+var USE_DOAS = true
 
 var txtProgramName = "CBSD-TUI"
 var txtHelp = `- To navigate in jails list use 'Up' and 'Down' keys or mouse
@@ -92,7 +92,8 @@ var cbsdActionsMenu map[string][]gowid.IWidget
 var cbsdActionsDialog *dialog.Widget
 var cbsdCloneJailDialog *dialog.Widget
 var cbsdSnapshotJailDialog *dialog.Widget
-var cbsdDestroyJailDialog *dialog.Widget
+
+// var cbsdDestroyJailDialog *dialog.Widget
 var cbsdEditJailDialog *dialog.Widget
 var cbsdListJails *list.Widget
 
@@ -439,15 +440,20 @@ func MakeEditJailDialog(jname string) *dialog.Widget {
 	return editjaildialog
 }
 
-func CBDestroyJailDialog(jname string, boolparams []bool, strparams []string) {
-	log.Infof("CBDestroyJailDialog: " + jname)
-	cbsdDestroyJailDialog.Close(app)
-	DoDestroyJail(jname)
-}
-
-func MakeDestroyJailConfirmationDialog(jname string) *dialog.Widget {
-	return MakeDialogForJail(jname, "Destroy jail "+jname, []string{"Really destroy jail " + jname + "??"},
-		nil, nil, nil, nil, CBDestroyJailDialog)
+func OpenDestroyJailDialog(jname string, viewHolder *holder.Widget, app *gowid.App) {
+	var cbsdDestroyJailDialog *dialog.Widget
+	cbsdDestroyJailDialog = MakeDialogForJail(
+		jname,
+		"Destroy jail "+jname,
+		[]string{"Really destroy jail " + jname + "??"},
+		nil, nil, nil, nil,
+		func(jname string, boolparams []bool, strparams []string) {
+			log.Infof("CBDestroyJailDialog: " + jname)
+			cbsdDestroyJailDialog.Close(app)
+			DoDestroyJail(jname)
+		},
+	)
+	cbsdDestroyJailDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
 }
 
 /*
@@ -723,8 +729,7 @@ func SnapshotJail(jname string) {
 }
 
 func DestroyJail(jname string) {
-	cbsdDestroyJailDialog = MakeDestroyJailConfirmationDialog(jname)
-	cbsdDestroyJailDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
+	OpenDestroyJailDialog(jname, viewHolder, app)
 }
 
 func ListSnapshotsJail(jname string) {
