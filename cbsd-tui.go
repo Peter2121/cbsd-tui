@@ -172,6 +172,52 @@ func CreateActionsLogDialog(editWidget *edit.Widget) *dialog.Widget {
 	return actionlogdialog
 }
 
+func MakeActionDialogForJail(jname string, title string, actions []string, actionfunc []func(jname string)) *dialog.Widget {
+	var containers []gowid.IContainerWidget
+	var lines *pile.Widget
+	menu := make([]gowid.IWidget, 0)
+	var nact int = 0
+	if actions != nil {
+		nact = len(actions)
+	}
+	for i := 0; i < nact; i++ {
+		//	for _, m := range (&Jail{}).GetActionsMenuItems() {
+		mtext := text.New(actions[i], text.Options{Align: gowid.HAlignLeft{}})
+		mtexts := GetStyledWidget(mtext, "white")
+		mbtn := button.New(mtexts, button.Options{Decoration: button.BareDecoration})
+		mbtn.OnClick(gowid.WidgetCallback{Name: "cb_" + mtext.Content().String(), WidgetChangedFunction: func(app gowid.IApp, w gowid.IWidget) {
+			app.Run(gowid.RunFunction(func(app gowid.IApp) {
+				actionfunc[i](jname)
+			}))
+		}})
+		menu = append(menu, mbtn)
+	}
+	actionlist := list.NewSimpleListWalker(menu)
+	actionlistst := styled.New(list.New(actionlist), gowid.MakePaletteRef("green"))
+	htxt := text.New(title, text.Options{Align: gowid.HAlignMiddle{}})
+	htxtst := styled.New(htxt, gowid.MakePaletteRef("magenta"))
+	containers = append(containers, &gowid.ContainerWidget{IWidget: htxtst, D: gowid.RenderFlow{}})
+	containers = append(containers, &gowid.ContainerWidget{IWidget: divider.NewUnicode(), D: gowid.RenderFlow{}})
+	containers = append(containers, &gowid.ContainerWidget{IWidget: actionlistst, D: gowid.RenderFlow{}})
+	lines = pile.New(containers)
+	retdialog := dialog.New(
+		framed.NewSpace(
+			lines,
+		),
+		dialog.Options{
+			Buttons:         []dialog.Button{dialog.CloseD},
+			Modal:           true,
+			NoShadow:        true,
+			TabToButtons:    true,
+			BackgroundStyle: gowid.MakePaletteRef("bluebg"),
+			BorderStyle:     gowid.MakePaletteRef("dialog"),
+			ButtonStyle:     gowid.MakePaletteRef("white-focus"),
+			FocusOnWidget:   true,
+		},
+	)
+	return retdialog
+}
+
 func MakeDialogForJail(jname string, title string, txt []string,
 	boolparnames []string, boolpardefaults []bool,
 	strparnames []string, strpardefaults []string,
