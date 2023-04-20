@@ -949,10 +949,13 @@ func main() {
 	defer f.Close()
 
 	curuser, err := user.Current()
-	if err != nil {
+	if err == nil {
+		log.Errorf("Current user name: %s", curuser.Username)
 		if curuser.Username == "root" {
 			doas = false
 		}
+	} else {
+		log.Errorf("Error from user.Current(): %s", err)
 	}
 
 	//cbsdJlsHeader = cbsdJailsFromDb[0].GetHeaderTitles()
