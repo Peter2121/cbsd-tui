@@ -135,8 +135,16 @@ func CreateCbsdJailActionsDialog(jname string) *dialog.Widget {
 	return actiondialog
 }
 
-func CreateHelpDialog() *dialog.Widget {
-	return MakeDialogForJail("", txtProgramName, []string{txtHelp}, nil, nil, nil, nil, nil)
+func OpenHelpDialog() {
+	var HelpDialog *dialog.Widget
+	HelpDialog = MakeDialogForJail(
+		"",
+		txtProgramName,
+		[]string{txtHelp},
+		nil, nil, nil, nil,
+		nil,
+	)
+	HelpDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
 }
 
 func CreateActionsLogDialog(editWidget *edit.Widget) *dialog.Widget {
@@ -327,14 +335,16 @@ func RunMenuAction(action string) {
 	// "[F1]Help ",      "[F2]Actions Menu ",    "[F3]View ",     "[F4]Edit ",     "[F5]Clone ",
 	// "[F6]Export ",    "[F7]Create Snapshot ", "[F8]Destroy ",  "[F10]Exit ",    "[F11]List Snapshots ", "[F12]Start/Stop"
 	case (&Jail{}).GetBottomMenuText2()[0]: // Help
-		helpdialog := CreateHelpDialog()
-		helpdialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.6}, app)
+		OpenHelpDialog()
 		return
 	case (&Jail{}).GetBottomMenuText2()[8]: // Exit
 		app.Quit()
 	}
 
 	curjail := GetSelectedJail()
+	if curjail == nil {
+		return
+	}
 	jname := curjail.GetName()
 	log.Infof("JailName: " + jname)
 
