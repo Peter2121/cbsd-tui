@@ -332,13 +332,13 @@ func (jail *Jail) Export(*holder.Widget, *gowid.App) {
 	txtheader := "Exporting jail...\n"
 
 	args := make([]string, 0)
-	if USE_DOAS {
+	if doas {
 		args = append(args, "cbsd")
 	}
 	args = append(args, "jexport")
 	args = append(args, "jname="+jail.Jname)
 
-	if USE_DOAS {
+	if doas {
 		command = doasProgram
 	} else {
 		command = cbsdProgram
@@ -351,12 +351,12 @@ func (jail *Jail) Destroy() {
 	var command string
 	txtheader := "Destroying jail " + jail.Jname + "...\n"
 	args := make([]string, 0)
-	if USE_DOAS {
+	if doas {
 		args = append(args, "cbsd")
 	}
 	args = append(args, "jdestroy")
 	args = append(args, "jname="+jail.Jname)
-	if USE_DOAS {
+	if doas {
 		command = doasProgram
 	} else {
 		command = cbsdProgram
@@ -385,14 +385,14 @@ func (jail *Jail) Snapshot(snapname string) {
 	var command string
 	txtheader := "Creating jail snapshot...\n"
 	args := make([]string, 0)
-	if USE_DOAS {
+	if doas {
 		args = append(args, "cbsd")
 	}
 	args = append(args, "jsnapshot")
 	args = append(args, "mode=create")
 	args = append(args, "snapname="+snapname)
 	args = append(args, "jname="+jail.Jname)
-	if USE_DOAS {
+	if doas {
 		command = doasProgram
 	} else {
 		command = cbsdProgram
@@ -422,7 +422,7 @@ func (jail *Jail) Clone(jnewjname string, jnewhname string, newip string) {
 	txtheader := "Cloning jail...\n"
 
 	args := make([]string, 0)
-	if USE_DOAS {
+	if doas {
 		args = append(args, "cbsd")
 	}
 	args = append(args, "jclone")
@@ -432,7 +432,7 @@ func (jail *Jail) Clone(jnewjname string, jnewhname string, newip string) {
 	args = append(args, "ip4_addr="+newip)
 	args = append(args, "checkstate=0")
 
-	if USE_DOAS {
+	if doas {
 		command = doasProgram
 	} else {
 		command = cbsdProgram
@@ -517,13 +517,13 @@ func (jail *Jail) ListSnapshots(*holder.Widget, *gowid.App) {
 	var command string
 	txtheader := "List jail snapshots...\n"
 	args := make([]string, 0)
-	if USE_DOAS {
+	if doas {
 		args = append(args, "cbsd")
 	}
 	args = append(args, "jsnapshot")
 	args = append(args, "mode=list")
 	args = append(args, "jname="+jail.Jname)
-	if USE_DOAS {
+	if doas {
 		command = doasProgram
 	} else {
 		command = cbsdProgram
@@ -550,13 +550,13 @@ func (jail *Jail) StartStop(viewHolder *holder.Widget, app *gowid.App) {
 			cbsdJailConsoleActive = ""
 		}
 		txtheader = "Stopping jail...\n"
-		if USE_DOAS {
+		if doas {
 			args = append(args, cbsdProgram)
 		}
 		args = append(args, "jstop")
 		args = append(args, "inter=1")
 		args = append(args, "jname="+jail.Jname)
-		if USE_DOAS {
+		if doas {
 			command = doasProgram
 		} else {
 			command = cbsdProgram

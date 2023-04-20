@@ -46,7 +46,7 @@ type PairString struct {
 	Value string
 }
 
-var USE_DOAS = true
+var doas = true
 
 var txtProgramName = "CBSD-TUI"
 var txtHelp = `- To navigate in jails list use 'Up' and 'Down' keys or mouse
@@ -616,7 +616,7 @@ func CreateScriptStartJail(jname string) (string, error) {
 	cmd += " -o"
 	//cmd += " 0 "
 	cmd += " L "
-	if USE_DOAS {
+	if doas {
 		cmd += doasProgram
 		cmd += " "
 		cmd += cbsdProgram
@@ -659,7 +659,7 @@ func LoginToJail(jname string) {
 			SendTerminalCommand("\x03")
 			SendTerminalCommand("exit")
 		}
-		if USE_DOAS {
+		if doas {
 			SendTerminalCommand(doasProgram + " " + "cbsd" + " " + cbsdCommandJailLogin + " " + cbsdArgJailName + "=" + jname)
 		} else {
 			SendTerminalCommand(cbsdProgram + " " + cbsdCommandJailLogin + " " + cbsdArgJailName + "=" + jname)
@@ -947,6 +947,13 @@ func main() {
 
 	f := RedirectLogger(logFileName)
 	defer f.Close()
+
+	curuser, err := user.Current()
+	if err != nil {
+		if curuser.Username == "root" {
+			doas = false
+		}
+	}
 
 	//cbsdJlsHeader = cbsdJailsFromDb[0].GetHeaderTitles()
 	cbsdListLines = MakeJailsLines()
