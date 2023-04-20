@@ -950,7 +950,6 @@ func main() {
 
 	curuser, err := user.Current()
 	if err == nil {
-		log.Errorf("Current user name: %s", curuser.Username)
 		if curuser.Username == "root" {
 			doas = false
 		}
