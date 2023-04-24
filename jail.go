@@ -25,6 +25,10 @@ var strAutoStart = []string{"Off", "On"}
 var strHeaderTitles = []string{"NAME", "IP4_ADDRESS", "STATUS", "AUTOSTART", "VERSION"}
 var strActionsMenuItems = []string{"Start/Stop", "Create Snapshot", "List Snapshots", "View ", "Edit", "Clone", "Export", "Destroy"}
 
+var strStartedActionsMenuItems = []string{"Stop", "Create Snapshot", "List Snapshots", "View ", "Edit", "Clone", "Export", "Destroy"}
+var strStoppedActionsMenuItems = []string{"Start", "Create Snapshot", "List Snapshots", "View ", "Edit", "Clone", "Export", "Destroy"}
+var strNonRunnableActionsMenuItems = []string{"---", "Create Snapshot", "List Snapshots", "View ", "Edit", "Clone", "Export", "Destroy"}
+
 //var cbsdActionsMenuText = []string{"Start/Stop", "Create Snapshot", "List Snapshots", "Clone", "Export", "Migrate", "Destroy", "Makeresolv", "Show Config"}
 
 var strBottomMenuText1 = []string{" 1", " 2", " 3", " 4", " 5", " 6", " 7", " 8", " 10", " 11", " 12"}
@@ -44,6 +48,18 @@ func (jail *Jail) GetHeaderTitles() []string {
 
 func (jail *Jail) GetActionsMenuItems() []string {
 	return strActionsMenuItems
+}
+
+func (jail *Jail) GetStartedActionsMenuItems() []string {
+	return strStartedActionsMenuItems
+}
+
+func (jail *Jail) GetStoppedActionsMenuItems() []string {
+	return strStoppedActionsMenuItems
+}
+
+func (jail *Jail) GetNonRunnableActionsMenuItems() []string {
+	return strNonRunnableActionsMenuItems
 }
 
 func (jail *Jail) GetName() string {
@@ -587,4 +603,54 @@ func (jail *Jail) StartStop(viewHolder *holder.Widget, app *gowid.App) {
 		ExecShellCommand(txtheader, command, args, logJstart)
 	}
 	UpdateJailStatus(jail)
+}
+
+func (jail *Jail) OpenActionDialog(viewHolder *holder.Widget, app *gowid.App) {
+	var cbsdActionsDialog *dialog.Widget
+	var MenuLines []string
+	if jail.IsRunning() {
+		MenuLines = jail.GetStartedActionsMenuItems()
+	} else if jail.IsRunnable() {
+		MenuLines = jail.GetStoppedActionsMenuItems()
+	} else {
+		MenuLines = jail.GetNonRunnableActionsMenuItems()
+	}
+	cbsdActionsDialog = MakeActionDialogForJail(jail.Jname, "Actions for "+jail.Jname, MenuLines,
+		[]func(jname string){
+			func(jname string) {
+				cbsdActionsDialog.Close(app)
+				jail.StartStop(viewHolder, app)
+			},
+			func(jname string) {
+				cbsdActionsDialog.Close(app)
+				jail.OpenSnapshotDialog(viewHolder, app)
+			},
+			func(jname string) {
+				cbsdActionsDialog.Close(app)
+				jail.ListSnapshots(viewHolder, app)
+			},
+			func(jname string) {
+				cbsdActionsDialog.Close(app)
+				jail.View(viewHolder, app)
+			},
+			func(jname string) {
+				cbsdActionsDialog.Close(app)
+				jail.OpenEditDialog(viewHolder, app)
+			},
+			func(jname string) {
+				cbsdActionsDialog.Close(app)
+				jail.OpenCloneDialog(viewHolder, app)
+			},
+			func(jname string) {
+				cbsdActionsDialog.Close(app)
+				jail.Export(viewHolder, app)
+			},
+			func(jname string) {
+				cbsdActionsDialog.Close(app)
+				jail.OpenDestroyDialog(viewHolder, app)
+			},
+			func(jname string) {},
+		},
+	)
+	cbsdActionsDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
 }

@@ -88,9 +88,6 @@ var stdbufProgram = "/usr/bin/stdbuf"
 var logJstart = "/var/log/jstart.log"
 var logText string = ""
 
-var cbsdActionsMenu map[string][]gowid.IWidget
-var cbsdActionsDialog *dialog.Widget
-
 var cbsdListJails *list.Widget
 
 var app *gowid.App
@@ -112,27 +109,6 @@ func GetCbsdDbConnString(readwrite bool) string {
 	} else {
 		return "file:" + cbsdUser.HomeDir + cbsdDatabaseName + "?mode=ro"
 	}
-}
-
-func CreateCbsdJailActionsDialog(jname string) *dialog.Widget {
-	actionlist := list.NewSimpleListWalker(cbsdActionsMenu[jname])
-	actionlistst := styled.New(list.New(actionlist), gowid.MakePaletteRef("green"))
-	actiondialog := dialog.New(
-		framed.NewSpace(
-			actionlistst,
-		),
-		dialog.Options{
-			Buttons:         []dialog.Button{dialog.CloseD},
-			Modal:           true,
-			NoShadow:        true,
-			TabToButtons:    true,
-			BackgroundStyle: gowid.MakePaletteRef("bluebg"),
-			BorderStyle:     gowid.MakePaletteRef("dialog"),
-			ButtonStyle:     gowid.MakePaletteRef("white-focus"),
-			FocusOnWidget:   true,
-		},
-	)
-	return actiondialog
 }
 
 func OpenHelpDialog() {
@@ -173,9 +149,14 @@ func CreateActionsLogDialog(editWidget *edit.Widget) *dialog.Widget {
 }
 
 func MakeActionDialogForJail(jname string, title string, actions []string, actionfunc []func(jname string)) *dialog.Widget {
+	MakeWidgetChangedFunction := func(actionfunc []func(jname string), ind int, jname string) gowid.WidgetChangedFunction {
+		return func(app gowid.IApp, w gowid.IWidget) { actionfunc[ind](jname) }
+	}
 	var containers []gowid.IContainerWidget
 	var lines *pile.Widget
+	var cb *gowid.WidgetCallback
 	menu := make([]gowid.IWidget, 0)
+
 	var nact int = 0
 	if actions != nil {
 		nact = len(actions)
@@ -185,13 +166,14 @@ func MakeActionDialogForJail(jname string, title string, actions []string, actio
 		mtext := text.New(actions[i], text.Options{Align: gowid.HAlignLeft{}})
 		mtexts := GetStyledWidget(mtext, "white")
 		mbtn := button.New(mtexts, button.Options{Decoration: button.BareDecoration})
-		mbtn.OnClick(gowid.WidgetCallback{Name: "cb_" + mtext.Content().String(), WidgetChangedFunction: func(app gowid.IApp, w gowid.IWidget) {
-			app.Run(gowid.RunFunction(func(app gowid.IApp) {
-				actionfunc[i](jname)
-			}))
-		}})
+		cb = &gowid.WidgetCallback{
+			Name:                  "cb_" + mtext.Content().String(),
+			WidgetChangedFunction: MakeWidgetChangedFunction(actionfunc, i, jname),
+		}
+		mbtn.OnClick(cb)
 		menu = append(menu, mbtn)
 	}
+
 	actionlist := list.NewSimpleListWalker(menu)
 	actionlistst := styled.New(list.New(actionlist), gowid.MakePaletteRef("green"))
 	htxt := text.New(title, text.Options{Align: gowid.HAlignMiddle{}})
@@ -396,7 +378,7 @@ func RunMenuAction(action string) {
 
 	switch action {
 	case (&Jail{}).GetBottomMenuText2()[1]: // Actions Menu
-		OpenJailActionsMenu(jname)
+		curjail.OpenActionDialog(viewHolder, app)
 	case (&Jail{}).GetBottomMenuText2()[2]: // View
 		curjail.View(viewHolder, app)
 	case (&Jail{}).GetBottomMenuText2()[3]: // Edit
@@ -439,7 +421,7 @@ func RefreshJailList() {
 		panic(err)
 	}
 	cbsdListLines = MakeJailsLines()
-	cbsdActionsMenu = MakeCbsdActionsMenu()
+	//cbsdActionsMenu = MakeCbsdActionsMenu()
 	cbsdListGrid = make([]gowid.IWidget, 0)
 	gheader := grid.New(cbsdListHeader, WIDTH, HPAD, VPAD, gowid.HAlignMiddle{})
 	cbsdListGrid = append(cbsdListGrid, gheader)
@@ -518,11 +500,13 @@ func ExecCommand(title string, command string, args []string) {
 	var cmd *exec.Cmd
 	logspace := edit.New(edit.Options{ReadOnly: true})
 	outdlg := CreateActionsLogDialog(logspace)
-	if cbsdActionsDialog != nil {
-		if cbsdActionsDialog.IsOpen() {
-			cbsdActionsDialog.Close(app)
+	/*
+		if cbsdActionsDialog != nil {
+			if cbsdActionsDialog.IsOpen() {
+				cbsdActionsDialog.Close(app)
+			}
 		}
-	}
+	*/
 	outdlg.Open(viewHolder, gowid.RenderWithRatio{R: 0.7}, app)
 	app.RedrawTerminal()
 	cmd = exec.Command(command, args...)
@@ -569,11 +553,13 @@ func ExecShellCommand(title string, command string, args []string, logfile strin
 	log.Infof("Trying to start %s command with %v arguments", command, args)
 	logspace := edit.New(edit.Options{ReadOnly: true})
 	outdlg := CreateActionsLogDialog(logspace)
-	if cbsdActionsDialog != nil {
-		if cbsdActionsDialog.IsOpen() {
-			cbsdActionsDialog.Close(app)
+	/*
+		if cbsdActionsDialog != nil {
+			if cbsdActionsDialog.IsOpen() {
+				cbsdActionsDialog.Close(app)
+			}
 		}
-	}
+	*/
 	outdlg.Open(viewHolder, gowid.RenderWithRatio{R: 0.7}, app)
 	app.RedrawTerminal()
 	cmd = exec.Command(command, args...)
@@ -759,30 +745,13 @@ func SetJailListFocus() {
 	cbsdListJails.Walker().SetFocus(newpos, app)
 }
 
-func OpenJailActionsMenu(jname string) {
-	btn := cbsdActionsMenu[jname][0].(*button.Widget)
-	txt := btn.SubWidget().(*styled.Widget).SubWidget().(*text.Widget)
-	wr := text.Writer{Widget: txt, IApp: app}
-	jail := GetJailByName(jname)
-	if jail.IsRunning() {
-		wr.Write([]byte("Stop"))
-	} else {
-		if jail.IsRunnable() {
-			wr.Write([]byte("Start"))
-		} else {
-			wr.Write([]byte("--Not Runnable--"))
-		}
-	}
-	cbsdActionsDialog = CreateCbsdJailActionsDialog(jname)
-	cbsdActionsDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
-}
-
 func JailListButtonCallBack(jname string, key gowid.IKey) {
 	switch key.Key() {
 	case tcell.KeyEnter:
 		LoginToJail(jname)
 	case tcell.KeyF2:
-		OpenJailActionsMenu(jname)
+		curjail := GetJailByName(jname)
+		curjail.OpenActionDialog(viewHolder, app)
 	case tcell.KeyCtrlR:
 		RefreshJailList()
 	case tcell.KeyTab:
@@ -791,6 +760,7 @@ func JailListButtonCallBack(jname string, key gowid.IKey) {
 		}
 	}
 }
+
 func MakeGridLine(jail *Jail) []gowid.IWidget {
 	style := "gray"
 	line := make([]gowid.IWidget, 0)
@@ -1006,7 +976,7 @@ func main() {
 	//cbsdJlsHeader = cbsdJailsFromDb[0].GetHeaderTitles()
 	cbsdListLines = MakeJailsLines()
 	cbsdListHeader = GetJailsListHeader()
-	cbsdActionsMenu = MakeCbsdActionsMenu()
+	//cbsdActionsMenu = MakeCbsdActionsMenu()
 
 	cbsdListGrid = make([]gowid.IWidget, 0)
 	gheader := grid.New(cbsdListHeader, WIDTH, HPAD, VPAD, gowid.HAlignMiddle{})
