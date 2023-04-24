@@ -306,30 +306,6 @@ func MakeDialogForJail(jname string, title string, txt []string,
 	return retdialog
 }
 
-func MakeCbsdActionsMenu() map[string][]gowid.IWidget {
-	actions := make(map[string][]gowid.IWidget, 0)
-	for _, j := range cbsdJailsFromDb {
-		actions[j.GetName()] = MakeCbsdJailActionsMenu(j.GetName())
-	}
-	return actions
-}
-
-func MakeCbsdJailActionsMenu(jname string) []gowid.IWidget {
-	menu := make([]gowid.IWidget, 0)
-	for _, m := range (&Jail{}).GetActionsMenuItems() {
-		mtext := text.New(m, text.Options{Align: gowid.HAlignLeft{}})
-		mtexts := GetStyledWidget(mtext, "white")
-		mbtn := button.New(mtexts, button.Options{Decoration: button.BareDecoration})
-		mbtn.OnClick(gowid.WidgetCallback{Name: "cb_" + mtext.Content().String(), WidgetChangedFunction: func(app gowid.IApp, w gowid.IWidget) {
-			app.Run(gowid.RunFunction(func(app gowid.IApp) {
-				RunActionOnJail(mtext.Content().String(), jname)
-			}))
-		}})
-		menu = append(menu, mbtn)
-	}
-	return menu
-}
-
 func RunActionOnJail(action string, jname string) {
 	log.Infof("Action: " + action + " on jail: " + jname)
 
@@ -421,7 +397,6 @@ func RefreshJailList() {
 		panic(err)
 	}
 	cbsdListLines = MakeJailsLines()
-	//cbsdActionsMenu = MakeCbsdActionsMenu()
 	cbsdListGrid = make([]gowid.IWidget, 0)
 	gheader := grid.New(cbsdListHeader, WIDTH, HPAD, VPAD, gowid.HAlignMiddle{})
 	cbsdListGrid = append(cbsdListGrid, gheader)
@@ -436,11 +411,6 @@ func RefreshJailList() {
 	cbsdListWalker = list.NewSimpleListWalker(cbsdListGrid)
 	cbsdListJails.SetWalker(cbsdListWalker, app)
 	SetJailListFocus()
-}
-
-func GetJailStatus(jname string) string {
-	jail := GetJailByName(jname)
-	return jail.GetStatusString()
 }
 
 func UpdateJailStatus(jail *Jail) {
@@ -976,7 +946,6 @@ func main() {
 	//cbsdJlsHeader = cbsdJailsFromDb[0].GetHeaderTitles()
 	cbsdListLines = MakeJailsLines()
 	cbsdListHeader = GetJailsListHeader()
-	//cbsdActionsMenu = MakeCbsdActionsMenu()
 
 	cbsdListGrid = make([]gowid.IWidget, 0)
 	gheader := grid.New(cbsdListHeader, WIDTH, HPAD, VPAD, gowid.HAlignMiddle{})
