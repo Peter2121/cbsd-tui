@@ -20,19 +20,34 @@ type Jail struct {
 	params   map[string]string
 }
 
+const (
+	HELP       = "Help"
+	START      = "Start"
+	STOP       = "Stop"
+	STARTSTOP  = "Start/Stop"
+	CREATESNAP = "Create Snap."
+	LISTSNAP   = "List Snap."
+	DELSNAP    = "Delete Snap."
+	VIEW       = "View"
+	EDIT       = "Edit"
+	CLONE      = "Clone"
+	EXPORT     = "Export"
+	DESTROY    = "Destroy"
+	ACTIONS    = "Actions..."
+	EXIT       = "Exit"
+)
+
 var strStatus = []string{"Off", "On", "Slave", "Unknown(3)", "Unknown(4)", "Unknown(5)"}
 var strAutoStart = []string{"Off", "On"}
 var strHeaderTitles = []string{"NAME", "IP4_ADDRESS", "STATUS", "AUTOSTART", "VERSION"}
-var strActionsMenuItems = []string{"Start/Stop", "Create Snapshot", "List Snapshots", "View ", "Edit", "Clone", "Export", "Destroy"}
+var strActionsMenuItems = []string{STARTSTOP, CREATESNAP, LISTSNAP, VIEW, EDIT, CLONE, EXPORT, DESTROY}
 
-var strStartedActionsMenuItems = []string{"Stop", "Create Snapshot", "List Snapshots", "View ", "Edit", "Clone", "Export", "Destroy"}
-var strStoppedActionsMenuItems = []string{"Start", "Create Snapshot", "List Snapshots", "View ", "Edit", "Clone", "Export", "Destroy"}
-var strNonRunnableActionsMenuItems = []string{"---", "Create Snapshot", "List Snapshots", "View ", "Edit", "Clone", "Export", "Destroy"}
-
-//var cbsdActionsMenuText = []string{"Start/Stop", "Create Snapshot", "List Snapshots", "Clone", "Export", "Migrate", "Destroy", "Makeresolv", "Show Config"}
+var strStartedActionsMenuItems = []string{STOP, CREATESNAP, LISTSNAP, VIEW, EDIT, CLONE, EXPORT, DESTROY}
+var strStoppedActionsMenuItems = []string{START, CREATESNAP, LISTSNAP, VIEW, EDIT, CLONE, EXPORT, DESTROY}
+var strNonRunnableActionsMenuItems = []string{"---", CREATESNAP, LISTSNAP, VIEW, EDIT, CLONE, EXPORT, DESTROY}
 
 var strBottomMenuText1 = []string{" 1", " 2", " 3", " 4", " 5", " 6", " 7", " 8", " 10", " 11", " 12"}
-var strBottomMenuText2 = []string{"Help ", "Actions... ", "View ", "Edit ", "Clone ", "Export ", "Create Snap. ", "Destroy ", "Exit ", "List Snap. ", "Start/Stop"}
+var strBottomMenuText2 = []string{HELP, ACTIONS, VIEW, EDIT, CLONE, EXPORT, CREATESNAP, DESTROY, EXIT, LISTSNAP, STARTSTOP}
 
 func (jail *Jail) GetBottomMenuText1() []string {
 	return strBottomMenuText1
@@ -654,3 +669,9 @@ func (jail *Jail) OpenActionDialog(viewHolder *holder.Widget, app *gowid.App) {
 	)
 	cbsdActionsDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
 }
+
+/*
+func (jail *Jail) RunMenuActionn(action string) {
+
+}
+*/

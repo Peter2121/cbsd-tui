@@ -875,7 +875,7 @@ func MakeBottomMenu() {
 	for i, m := range (&Jail{}).GetBottomMenuText2() {
 		mtext1 := text.New((&Jail{}).GetBottomMenuText1()[i], text.Options{Align: gowid.HAlignLeft{}})
 		mtext1st := styled.New(mtext1, gowid.MakePaletteRef("blackgreen"))
-		mtext2 := text.New(m, text.Options{Align: gowid.HAlignLeft{}})
+		mtext2 := text.New(m+" ", text.Options{Align: gowid.HAlignLeft{}})
 		mtext2st := styled.New(mtext2, gowid.MakePaletteRef("graydgreen"))
 		mtextgrp := hpadding.New(
 			columns.NewFixed(mtext1st, mtext2st),
@@ -885,7 +885,7 @@ func MakeBottomMenu() {
 		mbtn := button.New(mtextgrp, button.Options{Decoration: button.BareDecoration})
 		mbtn.OnClick(gowid.WidgetCallback{Name: "cbb_" + mtext2.Content().String(), WidgetChangedFunction: func(app gowid.IApp, w gowid.IWidget) {
 			app.Run(gowid.RunFunction(func(app gowid.IApp) {
-				RunMenuAction(mtext2.Content().String())
+				RunMenuAction(strings.TrimSpace(mtext2.Content().String()))
 			}))
 		}})
 		cbsdBottomMenu = append(cbsdBottomMenu, &gowid.ContainerWidget{IWidget: mbtn, D: gowid.RenderFixed{}})
