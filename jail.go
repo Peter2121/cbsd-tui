@@ -53,23 +53,23 @@ var keysBottomMenu = []tcell.Key{tcell.KeyF1, tcell.KeyF2, tcell.KeyF3, tcell.Ke
 
 func (jail *Jail) ExecuteActionOnCommand(command string, vh *holder.Widget, app *gowid.App) {
 	switch command {
-	case strBottomMenuText2[1]: // Actions Menu
+	case ACTIONS: // Actions Menu
 		jail.OpenActionDialog(vh, app)
-	case strBottomMenuText2[2]: // View
+	case VIEW: // View
 		jail.View(vh, app)
-	case strBottomMenuText2[3]: // Edit
+	case EDIT: // Edit
 		jail.OpenEditDialog(vh, app)
-	case strBottomMenuText2[4]: // Clone
+	case CLONE: // Clone
 		jail.OpenCloneDialog(vh, app)
-	case strBottomMenuText2[5]: // Export
+	case EXPORT: // Export
 		jail.Export(vh, app)
-	case strBottomMenuText2[6]: // Create Snapshot
+	case CREATESNAP: // Create Snapshot
 		jail.OpenSnapshotDialog(vh, app)
-	case strBottomMenuText2[7]: // Destroy
+	case DESTROY: // Destroy
 		jail.OpenDestroyDialog(vh, app)
-	case strBottomMenuText2[9]: // List Snapshots
+	case LISTSNAP: // List Snapshots
 		jail.ListSnapshots(vh, app)
-	case strBottomMenuText2[10]: // Start/Stop
+	case STARTSTOP: // Start/Stop
 		jail.StartStop(vh, app)
 	}
 }
