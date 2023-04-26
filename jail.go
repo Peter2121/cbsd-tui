@@ -710,9 +710,3 @@ func (jail *Jail) OpenActionDialog(viewHolder *holder.Widget, app *gowid.App) {
 	)
 	cbsdActionsDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
 }
-
-/*
-func (jail *Jail) RunMenuActionn(action string) {
-
-}
-*/

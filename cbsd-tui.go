@@ -306,32 +306,6 @@ func MakeDialogForJail(jname string, title string, txt []string,
 	return retdialog
 }
 
-func RunActionOnJail(action string, jname string) {
-	log.Infof("Action: " + action + " on jail: " + jname)
-
-	curjail := GetJailByName(jname)
-	if strings.Contains((&Jail{}).GetActionsMenuItems()[0], action) {
-		curjail.StartStop(viewHolder, app)
-	} else {
-		switch action {
-		case (&Jail{}).GetActionsMenuItems()[1]: // "Create Snapshot"
-			curjail.OpenSnapshotDialog(viewHolder, app)
-		case (&Jail{}).GetActionsMenuItems()[2]: // "List Snapshots"
-			curjail.ListSnapshots(viewHolder, app)
-		case (&Jail{}).GetActionsMenuItems()[3]: // "View"
-			curjail.View(viewHolder, app)
-		case (&Jail{}).GetActionsMenuItems()[4]: // "Edit"
-			curjail.OpenEditDialog(viewHolder, app)
-		case (&Jail{}).GetActionsMenuItems()[5]: // "Clone"
-			curjail.OpenCloneDialog(viewHolder, app)
-		case (&Jail{}).GetActionsMenuItems()[6]: // "Export"
-			curjail.Export(viewHolder, app)
-		case (&Jail{}).GetActionsMenuItems()[7]: // "Destroy"
-			curjail.OpenDestroyDialog(viewHolder, app)
-		}
-	}
-}
-
 func RunMenuAction(action string) {
 	log.Infof("Menu Action: " + action)
 
