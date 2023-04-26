@@ -338,10 +338,10 @@ func RunMenuAction(action string) {
 	switch action {
 	// "[F1]Help ",      "[F2]Actions Menu ",    "[F3]View ",     "[F4]Edit ",     "[F5]Clone ",
 	// "[F6]Export ",    "[F7]Create Snapshot ", "[F8]Destroy ",  "[F10]Exit ",    "[F11]List Snapshots ", "[F12]Start/Stop"
-	case (&Jail{}).GetBottomMenuText2()[0]: // Help
+	case (&Jail{}).GetCommandHelp(): // Help
 		OpenHelpDialog()
 		return
-	case (&Jail{}).GetBottomMenuText2()[8]: // Exit
+	case (&Jail{}).GetCommandExit(): // Exit
 		app.Quit()
 	}
 
@@ -349,29 +349,8 @@ func RunMenuAction(action string) {
 	if curjail == nil {
 		return
 	}
-	jname := curjail.GetName()
-	log.Infof("JailName: " + jname)
-
-	switch action {
-	case (&Jail{}).GetBottomMenuText2()[1]: // Actions Menu
-		curjail.OpenActionDialog(viewHolder, app)
-	case (&Jail{}).GetBottomMenuText2()[2]: // View
-		curjail.View(viewHolder, app)
-	case (&Jail{}).GetBottomMenuText2()[3]: // Edit
-		curjail.OpenEditDialog(viewHolder, app)
-	case (&Jail{}).GetBottomMenuText2()[4]: // Clone
-		curjail.OpenCloneDialog(viewHolder, app)
-	case (&Jail{}).GetBottomMenuText2()[5]: // Export
-		curjail.Export(viewHolder, app)
-	case (&Jail{}).GetBottomMenuText2()[6]: // Create Snapshot
-		curjail.OpenSnapshotDialog(viewHolder, app)
-	case (&Jail{}).GetBottomMenuText2()[7]: // Destroy
-		curjail.OpenDestroyDialog(viewHolder, app)
-	case (&Jail{}).GetBottomMenuText2()[9]: // List Snapshots
-		curjail.ListSnapshots(viewHolder, app)
-	case (&Jail{}).GetBottomMenuText2()[10]: // Start/Stop
-		curjail.StartStop(viewHolder, app)
-	}
+	log.Infof("JailName: " + curjail.GetName())
+	curjail.ExecuteActionOnCommand(action, viewHolder, app)
 }
 
 func GetSelectedJail() *Jail {
@@ -816,36 +795,24 @@ func (h handler) UnhandledInput(app gowid.IApp, ev interface{}) bool {
 		*/
 		// "[F1]Help ",            "[F2]Actions Menu ", "[F4]Edit ",   "[F5]Clone ",           "[F6]Export ",
 		// "[F7]Create Snapshot ", "[F8]Destroy ",      "[F10]Exit ",  "[F11]List Snapshots ", "[F12]Start/Stop"
-		switch evk.Key() {
+		ekey := evk.Key()
+		switch ekey {
 		case tcell.KeyCtrlC, tcell.KeyEsc, tcell.KeyF10:
 			app.Quit()
 		case tcell.KeyTab:
 			if next, ok := cbsdWidgets.FindNextSelectable(gowid.Forwards, true); ok {
 				cbsdWidgets.SetFocus(app, next)
 			}
+			return handled
 		case tcell.KeyF1:
-			RunMenuAction((&Jail{}).GetBottomMenuText2()[0]) // Help
-		case tcell.KeyF2:
-			RunMenuAction((&Jail{}).GetBottomMenuText2()[1]) // Actions Menu
-		case tcell.KeyF3:
-			RunMenuAction((&Jail{}).GetBottomMenuText2()[2]) // View
-		case tcell.KeyF4:
-			RunMenuAction((&Jail{}).GetBottomMenuText2()[3]) // Edit
-		case tcell.KeyF5:
-			RunMenuAction((&Jail{}).GetBottomMenuText2()[4]) // Clone
-		case tcell.KeyF6:
-			RunMenuAction((&Jail{}).GetBottomMenuText2()[5]) // Export
-		case tcell.KeyF7:
-			RunMenuAction((&Jail{}).GetBottomMenuText2()[6]) // Create Snapshot
-		case tcell.KeyF8:
-			RunMenuAction((&Jail{}).GetBottomMenuText2()[7]) // Destroy
-		case tcell.KeyF11:
-			RunMenuAction((&Jail{}).GetBottomMenuText2()[9]) // List Snapshots
-		case tcell.KeyF12:
-			RunMenuAction((&Jail{}).GetBottomMenuText2()[10]) // Start/Stop
-		default:
-			handled = false
+			OpenHelpDialog()
+			return handled
 		}
+		curjail := GetSelectedJail()
+		if curjail == nil {
+			return handled
+		}
+		curjail.ExecuteActionOnKey(int16(ekey), viewHolder, app.(*gowid.App))
 	}
 	return handled
 }

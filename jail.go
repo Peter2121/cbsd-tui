@@ -8,6 +8,7 @@ import (
 	"github.com/gcla/gowid/widgets/dialog"
 	"github.com/gcla/gowid/widgets/edit"
 	"github.com/gcla/gowid/widgets/holder"
+	"github.com/gdamore/tcell"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -48,6 +49,46 @@ var strNonRunnableActionsMenuItems = []string{"---", CREATESNAP, LISTSNAP, VIEW,
 
 var strBottomMenuText1 = []string{" 1", " 2", " 3", " 4", " 5", " 6", " 7", " 8", " 10", " 11", " 12"}
 var strBottomMenuText2 = []string{HELP, ACTIONS, VIEW, EDIT, CLONE, EXPORT, CREATESNAP, DESTROY, EXIT, LISTSNAP, STARTSTOP}
+var keysBottomMenu = []tcell.Key{tcell.KeyF1, tcell.KeyF2, tcell.KeyF3, tcell.KeyF4, tcell.KeyF5, tcell.KeyF6, tcell.KeyF7, tcell.KeyF8, tcell.KeyF10, tcell.KeyF11, tcell.KeyF12}
+
+func (jail *Jail) ExecuteActionOnCommand(command string, vh *holder.Widget, app *gowid.App) {
+	switch command {
+	case strBottomMenuText2[1]: // Actions Menu
+		jail.OpenActionDialog(vh, app)
+	case strBottomMenuText2[2]: // View
+		jail.View(vh, app)
+	case strBottomMenuText2[3]: // Edit
+		jail.OpenEditDialog(vh, app)
+	case strBottomMenuText2[4]: // Clone
+		jail.OpenCloneDialog(vh, app)
+	case strBottomMenuText2[5]: // Export
+		jail.Export(vh, app)
+	case strBottomMenuText2[6]: // Create Snapshot
+		jail.OpenSnapshotDialog(vh, app)
+	case strBottomMenuText2[7]: // Destroy
+		jail.OpenDestroyDialog(vh, app)
+	case strBottomMenuText2[9]: // List Snapshots
+		jail.ListSnapshots(vh, app)
+	case strBottomMenuText2[10]: // Start/Stop
+		jail.StartStop(vh, app)
+	}
+}
+
+func (jail *Jail) ExecuteActionOnKey(tkey int16, vh *holder.Widget, app *gowid.App) {
+	for i, k := range keysBottomMenu {
+		if int16(k) == tkey {
+			jail.ExecuteActionOnCommand(strBottomMenuText2[i], vh, app)
+		}
+	}
+}
+
+func (jail *Jail) GetCommandHelp() string {
+	return HELP
+}
+
+func (jail *Jail) GetCommandExit() string {
+	return EXIT
+}
 
 func (jail *Jail) GetBottomMenuText1() []string {
 	return strBottomMenuText1
