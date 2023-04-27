@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"database/sql"
 	"os"
+	"os/exec"
+	"strings"
 
 	"github.com/gcla/gowid"
 	"github.com/gcla/gowid/widgets/dialog"
@@ -50,37 +53,6 @@ var strNonRunnableActionsMenuItems = []string{"---", CREATESNAP, LISTSNAP, VIEW,
 var strBottomMenuText1 = []string{" 1", " 2", " 3", " 4", " 5", " 6", " 7", " 8", " 10", " 11", " 12"}
 var strBottomMenuText2 = []string{HELP, ACTIONS, VIEW, EDIT, CLONE, EXPORT, CREATESNAP, DESTROY, EXIT, LISTSNAP, STARTSTOP}
 var keysBottomMenu = []tcell.Key{tcell.KeyF1, tcell.KeyF2, tcell.KeyF3, tcell.KeyF4, tcell.KeyF5, tcell.KeyF6, tcell.KeyF7, tcell.KeyF8, tcell.KeyF10, tcell.KeyF11, tcell.KeyF12}
-
-func (jail *Jail) ExecuteActionOnCommand(command string, vh *holder.Widget, app *gowid.App) {
-	switch command {
-	case ACTIONS: // Actions Menu
-		jail.OpenActionDialog(vh, app)
-	case VIEW: // View
-		jail.View(vh, app)
-	case EDIT: // Edit
-		jail.OpenEditDialog(vh, app)
-	case CLONE: // Clone
-		jail.OpenCloneDialog(vh, app)
-	case EXPORT: // Export
-		jail.Export(vh, app)
-	case CREATESNAP: // Create Snapshot
-		jail.OpenSnapshotDialog(vh, app)
-	case DESTROY: // Destroy
-		jail.OpenDestroyDialog(vh, app)
-	case LISTSNAP: // List Snapshots
-		jail.ListSnapshots(vh, app)
-	case STARTSTOP: // Start/Stop
-		jail.StartStop(vh, app)
-	}
-}
-
-func (jail *Jail) ExecuteActionOnKey(tkey int16, vh *holder.Widget, app *gowid.App) {
-	for i, k := range keysBottomMenu {
-		if int16(k) == tkey {
-			jail.ExecuteActionOnCommand(strBottomMenuText2[i], vh, app)
-		}
-	}
-}
 
 func (jail *Jail) GetCommandHelp() string {
 	return HELP
@@ -584,6 +556,7 @@ func (jail *Jail) OpenEditDialog(viewHolder *holder.Widget, app *gowid.App) {
 	cbsdEditJailDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
 }
 
+/*
 func (jail *Jail) ListSnapshots(*holder.Widget, *gowid.App) {
 	// cbsd jsnapshot mode=list jname=nim1
 	var command string
@@ -602,6 +575,7 @@ func (jail *Jail) ListSnapshots(*holder.Widget, *gowid.App) {
 	}
 	ExecCommand(txtheader, command, args)
 }
+*/
 
 func (jail *Jail) View(viewHolder *holder.Widget, app *gowid.App) {
 	viewspace := edit.New(edit.Options{ReadOnly: true})
@@ -683,7 +657,8 @@ func (jail *Jail) OpenActionDialog(viewHolder *holder.Widget, app *gowid.App) {
 			},
 			func(jname string) {
 				cbsdActionsDialog.Close(app)
-				jail.ListSnapshots(viewHolder, app)
+				jail.OpenSnapActionsDialog(viewHolder, app)
+				//jail.ListSnapshots(viewHolder, app)
 			},
 			func(jname string) {
 				cbsdActionsDialog.Close(app)
@@ -709,4 +684,100 @@ func (jail *Jail) OpenActionDialog(viewHolder *holder.Widget, app *gowid.App) {
 		},
 	)
 	cbsdActionsDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
+}
+
+func (jail *Jail) ExecuteActionOnCommand(command string, vh *holder.Widget, app *gowid.App) {
+	switch command {
+	case ACTIONS: // Actions Menu
+		jail.OpenActionDialog(vh, app)
+	case VIEW: // View
+		jail.View(vh, app)
+	case EDIT: // Edit
+		jail.OpenEditDialog(vh, app)
+	case CLONE: // Clone
+		jail.OpenCloneDialog(vh, app)
+	case EXPORT: // Export
+		jail.Export(vh, app)
+	case CREATESNAP: // Create Snapshot
+		jail.OpenSnapshotDialog(vh, app)
+	case DESTROY: // Destroy
+		jail.OpenDestroyDialog(vh, app)
+	case LISTSNAP: // List Snapshots
+		jail.OpenSnapActionsDialog(vh, app)
+		//jail.ListSnapshots(vh, app)
+	case STARTSTOP: // Start/Stop
+		jail.StartStop(vh, app)
+	}
+}
+
+func (jail *Jail) ExecuteActionOnKey(tkey int16, vh *holder.Widget, app *gowid.App) {
+	for i, k := range keysBottomMenu {
+		if int16(k) == tkey {
+			jail.ExecuteActionOnCommand(strBottomMenuText2[i], vh, app)
+		}
+	}
+}
+
+func (jail *Jail) GetSnapshots() [][2]string {
+	var snap = [2]string{"", ""}
+	retsnap := make([][2]string, 0)
+	var stdout, stderr bytes.Buffer
+	var cmd *exec.Cmd = nil
+
+	// cbsd jsnapshot jname=jinja1 mode=list header=0 display=snapname,creation
+	args := make([]string, 0)
+	if doas {
+		args = append(args, cbsdProgram)
+	}
+	args = append(args, "jsnapshot")
+	args = append(args, "jname="+jail.Jname)
+	args = append(args, "mode=list")
+	args = append(args, "header=0")
+	args = append(args, "display=snapname,creation")
+	if doas {
+		cmd = exec.Command(doasProgram, args...)
+	} else {
+		cmd = exec.Command(cbsdProgram, args...)
+	}
+	cmd.Env = os.Environ()
+	cmd.Env = append(cmd.Env, "NOCOLOR=1")
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	if err != nil {
+		LogError("cmd.Run() failed", err)
+		return retsnap
+	}
+	str_out := string(stdout.Bytes())
+	str_snaps := strings.Split(str_out, "\n")
+	for _, s := range str_snaps {
+		fields := strings.Fields(s)
+		if len(fields) < 2 {
+			continue
+		}
+		snap[0] = fields[0]
+		snap[1] = fields[1]
+		retsnap = append(retsnap, snap)
+	}
+	return retsnap
+}
+
+func DeleteSnapshot(jname string, snapname string) {
+
+}
+
+func (jail *Jail) OpenSnapActionsDialog(viewHolder *holder.Widget, app *gowid.App) {
+	snaps := jail.GetSnapshots()
+	var cbsdSnapActionsDialog *dialog.Widget
+	var menulines []string
+	var cbfunc []func(jname string)
+	for _, s := range snaps {
+		menulines = append(menulines, s[0]+" ("+s[1]+")")
+		cbfunc = append(cbfunc, func(jname string) {
+			cbsdSnapActionsDialog.Close(app)
+			DeleteSnapshot(jail.Jname, s[0])
+		})
+	}
+	cbsdSnapActionsDialog = MakeActionDialogForJail(jail.Jname, "Snapshots for "+jail.Jname, menulines, cbfunc)
+	cbsdSnapActionsDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
 }
