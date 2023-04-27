@@ -31,7 +31,7 @@ const (
 	STARTSTOP  = "Start/Stop"
 	CREATESNAP = "Create Snap."
 	LISTSNAP   = "List Snap."
-	DELSNAP    = "Delete Snap."
+	DELSNAP    = "Destroy Snap."
 	VIEW       = "View"
 	EDIT       = "Edit"
 	CLONE      = "Clone"
@@ -44,14 +44,14 @@ const (
 var strStatus = []string{"Off", "On", "Slave", "Unknown(3)", "Unknown(4)", "Unknown(5)"}
 var strAutoStart = []string{"Off", "On"}
 var strHeaderTitles = []string{"NAME", "IP4_ADDRESS", "STATUS", "AUTOSTART", "VERSION"}
-var strActionsMenuItems = []string{STARTSTOP, CREATESNAP, LISTSNAP, VIEW, EDIT, CLONE, EXPORT, DESTROY}
+var strActionsMenuItems = []string{STARTSTOP, CREATESNAP, DELSNAP, VIEW, EDIT, CLONE, EXPORT, DESTROY}
 
-var strStartedActionsMenuItems = []string{STOP, CREATESNAP, LISTSNAP, VIEW, EDIT, CLONE, EXPORT, DESTROY}
-var strStoppedActionsMenuItems = []string{START, CREATESNAP, LISTSNAP, VIEW, EDIT, CLONE, EXPORT, DESTROY}
-var strNonRunnableActionsMenuItems = []string{"---", CREATESNAP, LISTSNAP, VIEW, EDIT, CLONE, EXPORT, DESTROY}
+var strStartedActionsMenuItems = []string{STOP, CREATESNAP, DELSNAP, VIEW, EDIT, CLONE, EXPORT, DESTROY}
+var strStoppedActionsMenuItems = []string{START, CREATESNAP, DELSNAP, VIEW, EDIT, CLONE, EXPORT, DESTROY}
+var strNonRunnableActionsMenuItems = []string{"---", CREATESNAP, DELSNAP, VIEW, EDIT, CLONE, EXPORT, DESTROY}
 
 var strBottomMenuText1 = []string{" 1", " 2", " 3", " 4", " 5", " 6", " 7", " 8", " 10", " 11", " 12"}
-var strBottomMenuText2 = []string{HELP, ACTIONS, VIEW, EDIT, CLONE, EXPORT, CREATESNAP, DESTROY, EXIT, LISTSNAP, STARTSTOP}
+var strBottomMenuText2 = []string{HELP, ACTIONS, VIEW, EDIT, CLONE, EXPORT, CREATESNAP, DESTROY, EXIT, DELSNAP, STARTSTOP}
 var keysBottomMenu = []tcell.Key{tcell.KeyF1, tcell.KeyF2, tcell.KeyF3, tcell.KeyF4, tcell.KeyF5, tcell.KeyF6, tcell.KeyF7, tcell.KeyF8, tcell.KeyF10, tcell.KeyF11, tcell.KeyF12}
 
 func (jail *Jail) GetCommandHelp() string {
@@ -377,7 +377,7 @@ func (jail *Jail) Export(*holder.Widget, *gowid.App) {
 
 	args := make([]string, 0)
 	if doas {
-		args = append(args, "cbsd")
+		args = append(args, cbsdProgram)
 	}
 	args = append(args, "jexport")
 	args = append(args, "jname="+jail.Jname)
@@ -396,7 +396,7 @@ func (jail *Jail) Destroy() {
 	txtheader := "Destroying jail " + jail.Jname + "...\n"
 	args := make([]string, 0)
 	if doas {
-		args = append(args, "cbsd")
+		args = append(args, cbsdProgram)
 	}
 	args = append(args, "jdestroy")
 	args = append(args, "jname="+jail.Jname)
@@ -430,7 +430,7 @@ func (jail *Jail) Snapshot(snapname string) {
 	txtheader := "Creating jail snapshot...\n"
 	args := make([]string, 0)
 	if doas {
-		args = append(args, "cbsd")
+		args = append(args, cbsdProgram)
 	}
 	args = append(args, "jsnapshot")
 	args = append(args, "mode=create")
@@ -467,7 +467,7 @@ func (jail *Jail) Clone(jnewjname string, jnewhname string, newip string) {
 
 	args := make([]string, 0)
 	if doas {
-		args = append(args, "cbsd")
+		args = append(args, cbsdProgram)
 	}
 	args = append(args, "jclone")
 	args = append(args, "old="+jail.Jname)
@@ -702,7 +702,7 @@ func (jail *Jail) ExecuteActionOnCommand(command string, vh *holder.Widget, app 
 		jail.OpenSnapshotDialog(vh, app)
 	case DESTROY: // Destroy
 		jail.OpenDestroyDialog(vh, app)
-	case LISTSNAP: // List Snapshots
+	case DELSNAP: // List Snapshots
 		jail.OpenSnapActionsDialog(vh, app)
 		//jail.ListSnapshots(vh, app)
 	case STARTSTOP: // Start/Stop
@@ -762,22 +762,56 @@ func (jail *Jail) GetSnapshots() [][2]string {
 	return retsnap
 }
 
-func DeleteSnapshot(jname string, snapname string) {
-
-}
-
 func (jail *Jail) OpenSnapActionsDialog(viewHolder *holder.Widget, app *gowid.App) {
-	snaps := jail.GetSnapshots()
 	var cbsdSnapActionsDialog *dialog.Widget
+	MakeWidgetChangedFunction := func(snapname string) func(jname string) {
+		return func(jname string) {
+			cbsdSnapActionsDialog.Close(app)
+			jail.OpenDestroySnapshotDialog(snapname, viewHolder, app)
+		}
+	}
+	snaps := jail.GetSnapshots()
 	var menulines []string
 	var cbfunc []func(jname string)
 	for _, s := range snaps {
 		menulines = append(menulines, s[0]+" ("+s[1]+")")
-		cbfunc = append(cbfunc, func(jname string) {
-			cbsdSnapActionsDialog.Close(app)
-			DeleteSnapshot(jail.Jname, s[0])
-		})
+		cbfunc = append(cbfunc, MakeWidgetChangedFunction(s[0]))
 	}
 	cbsdSnapActionsDialog = MakeActionDialogForJail(jail.Jname, "Snapshots for "+jail.Jname, menulines, cbfunc)
 	cbsdSnapActionsDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
+}
+
+func (jail *Jail) DestroySnapshot(snapname string) {
+	// cbsd jsnapshot mode=destroy jname=nim1 snapname=20220319193339
+	var command string
+	txtheader := "Destroy jail snapshot...\n"
+	args := make([]string, 0)
+	if doas {
+		args = append(args, cbsdProgram)
+	}
+	args = append(args, "jsnapshot")
+	args = append(args, "mode=destroy")
+	args = append(args, "jname="+jail.Jname)
+	args = append(args, "snapname="+snapname)
+	if doas {
+		command = doasProgram
+	} else {
+		command = cbsdProgram
+	}
+	ExecCommand(txtheader, command, args)
+}
+
+func (jail *Jail) OpenDestroySnapshotDialog(snapname string, viewHolder *holder.Widget, app *gowid.App) {
+	var cbsdDestroySnapDialog *dialog.Widget
+	cbsdDestroySnapDialog = MakeDialogForJail(
+		jail.Jname,
+		"Destroy snapshot "+snapname+"\nof jail "+jail.Jname,
+		[]string{"Really destroy snapshot " + snapname + "\nof jail " + jail.Jname + "??"},
+		nil, nil, nil, nil,
+		func(jname string, boolparams []bool, strparams []string) {
+			cbsdDestroySnapDialog.Close(app)
+			jail.DestroySnapshot(snapname)
+		},
+	)
+	cbsdDestroySnapDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
 }
