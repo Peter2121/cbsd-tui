@@ -556,27 +556,6 @@ func (jail *Jail) OpenEditDialog(viewHolder *holder.Widget, app *gowid.App) {
 	cbsdEditJailDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
 }
 
-/*
-func (jail *Jail) ListSnapshots(*holder.Widget, *gowid.App) {
-	// cbsd jsnapshot mode=list jname=nim1
-	var command string
-	txtheader := "List jail snapshots...\n"
-	args := make([]string, 0)
-	if doas {
-		args = append(args, "cbsd")
-	}
-	args = append(args, "jsnapshot")
-	args = append(args, "mode=list")
-	args = append(args, "jname="+jail.Jname)
-	if doas {
-		command = doasProgram
-	} else {
-		command = cbsdProgram
-	}
-	ExecCommand(txtheader, command, args)
-}
-*/
-
 func (jail *Jail) View(viewHolder *holder.Widget, app *gowid.App) {
 	viewspace := edit.New(edit.Options{ReadOnly: true})
 	outdlg := CreateActionsLogDialog(viewspace)
@@ -658,7 +637,6 @@ func (jail *Jail) OpenActionDialog(viewHolder *holder.Widget, app *gowid.App) {
 			func(jname string) {
 				cbsdActionsDialog.Close(app)
 				jail.OpenSnapActionsDialog(viewHolder, app)
-				//jail.ListSnapshots(viewHolder, app)
 			},
 			func(jname string) {
 				cbsdActionsDialog.Close(app)
@@ -702,9 +680,8 @@ func (jail *Jail) ExecuteActionOnCommand(command string, vh *holder.Widget, app 
 		jail.OpenSnapshotDialog(vh, app)
 	case DESTROY: // Destroy
 		jail.OpenDestroyDialog(vh, app)
-	case DELSNAP: // List Snapshots
+	case DELSNAP: // Destroy Snapshots
 		jail.OpenSnapActionsDialog(vh, app)
-		//jail.ListSnapshots(vh, app)
 	case STARTSTOP: // Start/Stop
 		jail.StartStop(vh, app)
 	}
