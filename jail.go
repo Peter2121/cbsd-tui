@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"database/sql"
+	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"strings"
@@ -53,6 +55,11 @@ var strNonRunnableActionsMenuItems = []string{"---", CREATESNAP, DELSNAP, VIEW, 
 var strBottomMenuText1 = []string{" 1", " 2", " 3", " 4", " 5", " 6", " 7", " 8", " 10", " 11", " 12"}
 var strBottomMenuText2 = []string{HELP, ACTIONS, VIEW, EDIT, CLONE, EXPORT, CREATESNAP, DESTROY, EXIT, DELSNAP, STARTSTOP}
 var keysBottomMenu = []tcell.Key{tcell.KeyF1, tcell.KeyF2, tcell.KeyF3, tcell.KeyF4, tcell.KeyF5, tcell.KeyF6, tcell.KeyF7, tcell.KeyF8, tcell.KeyF10, tcell.KeyF11, tcell.KeyF12}
+
+var commandJailLogin string = "jlogin"
+var commandJailStart string = "jstart"
+var commandJailStop string = "jstop"
+var argJailName = "jname"
 
 func (jail *Jail) GetCommandHelp() string {
 	return HELP
@@ -578,7 +585,7 @@ func (jail *Jail) StartStop(viewHolder *holder.Widget, app *gowid.App) {
 		if doas {
 			args = append(args, cbsdProgram)
 		}
-		args = append(args, "jstop")
+		args = append(args, commandJailStop)
 		args = append(args, "inter=1")
 		args = append(args, "jname="+jail.Jname)
 		if doas {
@@ -599,7 +606,7 @@ func (jail *Jail) StartStop(viewHolder *holder.Widget, app *gowid.App) {
 			args = append(args, "jname="+jail.Name)
 		*/
 		command = shellProgram
-		script, err := CreateScriptStartJail(jail.Jname)
+		script, err := jail.CreateScriptStartJail()
 		if err != nil {
 			LogError("Cannot create jstart script", err)
 			if script != "" {
@@ -612,6 +619,45 @@ func (jail *Jail) StartStop(viewHolder *holder.Widget, app *gowid.App) {
 		ExecShellCommand(txtheader, command, args, logJstart)
 	}
 	UpdateJailStatus(jail)
+}
+
+func (jail *Jail) GetStartCommand() string {
+	cmd := fmt.Sprintf("%s inter=1 %s=%s", commandJailStart, argJailName, jail.Jname)
+	return cmd
+}
+
+func (jail *Jail) GetLoginCommand() string {
+	cmd := fmt.Sprintf("%s %s=%s", commandJailLogin, argJailName, jail.Jname)
+	return cmd
+}
+
+func (jail *Jail) CreateScriptStartJail() (string, error) {
+	cmd := ""
+	file, err := ioutil.TempFile("", "jail_start_")
+	if err != nil {
+		return "", err
+	}
+	file.WriteString("#!" + shellProgram + "\n")
+	cmd += stdbufProgram
+	cmd += " -o"
+	//cmd += " 0 "
+	cmd += " L "
+	if doas {
+		cmd += doasProgram
+		cmd += " "
+		cmd += cbsdProgram
+	} else {
+		cmd += cbsdProgram
+	}
+	cmd += " "
+	cmd += jail.GetStartCommand()
+	cmd += " > "
+	cmd += logJstart
+	_, err = file.WriteString(cmd + "\n")
+	if err != nil {
+		return file.Name(), err
+	}
+	return file.Name(), nil
 }
 
 func (jail *Jail) OpenActionDialog(viewHolder *holder.Widget, app *gowid.App) {
@@ -791,4 +837,13 @@ func (jail *Jail) OpenDestroySnapshotDialog(snapname string, viewHolder *holder.
 		},
 	)
 	cbsdDestroySnapDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
+}
+
+func (jail *Jail) GetAllParams() []string {
+	params := make([]string, 4)
+	params[0] = jail.GetAddr()
+	params[1] = jail.GetStatusString()
+	params[2] = jail.GetAutoStartString()
+	params[3] = jail.GetVer()
+	return params
 }

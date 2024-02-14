@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"os/user"
@@ -59,8 +58,6 @@ var txtHelp = `- To navigate in jails list use 'Up' and 'Down' keys or mouse
 var doasProgram = "/usr/local/bin/doas"
 
 var cbsdProgram = "/usr/local/bin/cbsd"
-var cbsdCommandJailLogin = "jlogin"
-var cbsdArgJailName = "jname"
 var cbsdUserName = "cbsd"
 
 var pwProgram = "/usr/sbin/pw"
@@ -95,6 +92,9 @@ var menu2 *menu.Widget
 var viewHolder *holder.Widget
 
 type handler struct{}
+
+var HALIGN_MIDDLE text.Options = text.Options{Align: gowid.HAlignMiddle{}}
+var HALIGN_LEFT text.Options = text.Options{Align: gowid.HAlignLeft{}}
 
 func GetCbsdDbConnString(readwrite bool) string {
 	var err error
@@ -163,7 +163,7 @@ func MakeActionDialogForJail(jname string, title string, actions []string, actio
 	}
 	for i := 0; i < nact; i++ {
 		//	for _, m := range (&Jail{}).GetActionsMenuItems() {
-		mtext := text.New(actions[i], text.Options{Align: gowid.HAlignLeft{}})
+		mtext := text.New(actions[i], HALIGN_LEFT)
 		mtexts := GetStyledWidget(mtext, "white")
 		mbtn := button.New(mtexts, button.Options{Decoration: button.BareDecoration})
 		cb = &gowid.WidgetCallback{
@@ -176,7 +176,7 @@ func MakeActionDialogForJail(jname string, title string, actions []string, actio
 
 	actionlist := list.NewSimpleListWalker(menu)
 	actionlistst := styled.New(list.New(actionlist), gowid.MakePaletteRef("green"))
-	htxt := text.New(title, text.Options{Align: gowid.HAlignMiddle{}})
+	htxt := text.New(title, HALIGN_MIDDLE)
 	htxtst := styled.New(htxt, gowid.MakePaletteRef("magenta"))
 	containers = append(containers, &gowid.ContainerWidget{IWidget: htxtst, D: gowid.RenderFlow{}})
 	containers = append(containers, &gowid.ContainerWidget{IWidget: divider.NewUnicode(), D: gowid.RenderFlow{}})
@@ -240,19 +240,19 @@ func MakeDialogForJail(jname string, title string, txt []string,
 	var btnok dialog.Button
 	var buttons []dialog.Button
 
-	htxt := text.New(title, text.Options{Align: gowid.HAlignMiddle{}})
+	htxt := text.New(title, HALIGN_MIDDLE)
 	htxtst := styled.New(htxt, gowid.MakePaletteRef("magenta"))
 	containers = append(containers, &gowid.ContainerWidget{IWidget: htxtst, D: gowid.RenderFlow{}})
 	containers = append(containers, &gowid.ContainerWidget{IWidget: divider.NewUnicode(), D: gowid.RenderFlow{}})
 
 	for i := 0; i < ntxt; i++ {
-		widtxt = append(widtxt, text.New(txt[i], text.Options{Align: gowid.HAlignLeft{}}))
+		widtxt = append(widtxt, text.New(txt[i], HALIGN_LEFT))
 		widtxtst = append(widtxtst, styled.New(widtxt[i], gowid.MakePaletteRef("green")))
 		containers = append(containers, &gowid.ContainerWidget{IWidget: widtxtst[i], D: gowid.RenderFlow{}})
 	}
 
 	for i := 0; i < nboolparams; i++ {
-		widchecktxt = append(widchecktxt, text.New(boolparnames[i], text.Options{Align: gowid.HAlignLeft{}}))
+		widchecktxt = append(widchecktxt, text.New(boolparnames[i], HALIGN_LEFT))
 		widchecktxtst = append(widchecktxtst, styled.New(widchecktxt[i], gowid.MakePaletteRef("green")))
 		widcheck = append(widcheck, checkbox.New(boolpardefaults[i]))
 		widcheckgrp = append(widcheckgrp, hpadding.New(columns.NewFixed(widchecktxtst[i], widcheck[i]), gowid.HAlignLeft{}, gowid.RenderFixed{}))
@@ -383,15 +383,15 @@ func UpdateJailLine(jail *Jail) {
 		//	var cbsdJlsHeader = []string{"NAME", "IP4_ADDRESS", "STATUS", "AUTOSTART", "VERSION"}
 
 		line[0] = GetMenuButton(jail)
-		line[1] = GetStyledWidget(text.New(jail.GetAddr(), text.Options{Align: gowid.HAlignMiddle{}}), style)
-		line[2] = GetStyledWidget(text.New(jail.GetStatusString(), text.Options{Align: gowid.HAlignMiddle{}}), style)
-		line[3] = GetStyledWidget(text.New(jail.GetAutoStartString(), text.Options{Align: gowid.HAlignMiddle{}}), style)
-		line[4] = GetStyledWidget(text.New(jail.GetVer(), text.Options{Align: gowid.HAlignMiddle{}}), style)
+		jail_params := jail.GetAllParams()
+		for i, param := range jail_params {
+			line[i+1] = GetStyledWidget(text.New(param, HALIGN_MIDDLE), style)
+		}
 	}
 }
 
 func GetMenuButton(jail *Jail) *keypress.Widget {
-	btxt := text.New(jail.GetName(), text.Options{Align: gowid.HAlignMiddle{}})
+	btxt := text.New(jail.GetName(), HALIGN_MIDDLE)
 	style := GetJailStyle(jail.GetStatus(), jail.GetAstart())
 	txts := GetStyledWidget(btxt, style)
 	btnnew := button.New(txts, button.Options{
@@ -521,7 +521,7 @@ func ExecShellCommand(title string, command string, args []string, logfile strin
 			if fsize.Size() > oldfsize {
 				oldfsize = fsize.Size()
 				if fsize.Size() > int64(MAXBUF) {
-					log.Errorf("jstart produced output is too long, it will be truncated\n")
+					log.Errorf(command + " produced output is too long, it will be truncated\n")
 					break
 				}
 				rbytes, err = file.Read(buf)
@@ -560,36 +560,6 @@ func LogError(strerr string, err error) {
 	log.Errorf(strerr+": %w", err)
 }
 
-func CreateScriptStartJail(jname string) (string, error) {
-	cmd := ""
-	file, err := ioutil.TempFile("", "jail_start_")
-	if err != nil {
-		return "", err
-	}
-	file.WriteString("#!" + shellProgram + "\n")
-	cmd += stdbufProgram
-	cmd += " -o"
-	//cmd += " 0 "
-	cmd += " L "
-	if doas {
-		cmd += doasProgram
-		cmd += " "
-		cmd += cbsdProgram
-	} else {
-		cmd += cbsdProgram
-	}
-	cmd += " jstart"
-	cmd += " inter=1"
-	cmd += " jname=" + jname
-	cmd += " > "
-	cmd += logJstart
-	_, err = file.WriteString(cmd + "\n")
-	if err != nil {
-		return file.Name(), err
-	}
-	return file.Name(), nil
-}
-
 func GetJailByName(jname string) *Jail {
 	var jail *Jail = nil
 	for _, j := range cbsdJailsFromDb {
@@ -615,9 +585,9 @@ func LoginToJail(jname string) {
 			SendTerminalCommand("exit")
 		}
 		if doas {
-			SendTerminalCommand(doasProgram + " " + "cbsd" + " " + cbsdCommandJailLogin + " " + cbsdArgJailName + "=" + jname)
+			SendTerminalCommand(doasProgram + " " + cbsdProgram + " " + jail.GetLoginCommand())
 		} else {
-			SendTerminalCommand(cbsdProgram + " " + cbsdCommandJailLogin + " " + cbsdArgJailName + "=" + jname)
+			SendTerminalCommand(cbsdProgram + " " + jail.GetLoginCommand())
 		}
 		cbsdJailConsoleActive = jname
 		if cbsdWidgets.Focus() == 0 { // TODO: check current focus more carefully
@@ -636,7 +606,7 @@ func SendTerminalCommand(cmd string) {
 func GetJailsListHeader() []gowid.IWidget {
 	header := make([]gowid.IWidget, 0)
 	for _, h := range (&Jail{}).GetHeaderTitles() {
-		htext := text.New(h, text.Options{Align: gowid.HAlignMiddle{}})
+		htext := text.New(h, HALIGN_MIDDLE)
 		header = append(header, GetStyledWidget(htext, "white"))
 	}
 	return header
@@ -689,10 +659,10 @@ func MakeGridLine(jail *Jail) []gowid.IWidget {
 	line := make([]gowid.IWidget, 0)
 	style = GetJailStyle(jail.GetStatus(), jail.GetAstart())
 	line = append(line, GetMenuButton(jail))
-	line = append(line, GetStyledWidget(text.New(jail.GetAddr(), text.Options{Align: gowid.HAlignMiddle{}}), style))
-	line = append(line, GetStyledWidget(text.New(jail.GetStatusString(), text.Options{Align: gowid.HAlignMiddle{}}), style))
-	line = append(line, GetStyledWidget(text.New(jail.GetAutoStartString(), text.Options{Align: gowid.HAlignMiddle{}}), style))
-	line = append(line, GetStyledWidget(text.New(jail.GetVer(), text.Options{Align: gowid.HAlignMiddle{}}), style))
+	jail_params := jail.GetAllParams()
+	for _, param := range jail_params {
+		line = append(line, GetStyledWidget(text.New(param, HALIGN_MIDDLE), style))
+	}
 	return line
 }
 
@@ -814,9 +784,9 @@ func GetStyledWidget(w gowid.IWidget, color string) *styled.Widget {
 func MakeBottomMenu() {
 	cbsdBottomMenu = make([]gowid.IContainerWidget, 0)
 	for i, m := range (&Jail{}).GetBottomMenuText2() {
-		mtext1 := text.New((&Jail{}).GetBottomMenuText1()[i], text.Options{Align: gowid.HAlignLeft{}})
+		mtext1 := text.New((&Jail{}).GetBottomMenuText1()[i], HALIGN_LEFT)
 		mtext1st := styled.New(mtext1, gowid.MakePaletteRef("blackgreen"))
-		mtext2 := text.New(m+" ", text.Options{Align: gowid.HAlignLeft{}})
+		mtext2 := text.New(m+" ", HALIGN_LEFT)
 		mtext2st := styled.New(mtext2, gowid.MakePaletteRef("graydgreen"))
 		mtextgrp := hpadding.New(
 			columns.NewFixed(mtext1st, mtext2st),
