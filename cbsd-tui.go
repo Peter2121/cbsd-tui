@@ -17,7 +17,6 @@ import (
 	"github.com/gcla/gowid/widgets/boxadapter"
 	"github.com/gcla/gowid/widgets/button"
 	"github.com/gcla/gowid/widgets/cellmod"
-	"github.com/gcla/gowid/widgets/checkbox"
 	"github.com/gcla/gowid/widgets/columns"
 	"github.com/gcla/gowid/widgets/dialog"
 	"github.com/gcla/gowid/widgets/divider"
@@ -35,6 +34,11 @@ import (
 	"github.com/gcla/gowid/widgets/terminal"
 	"github.com/gcla/gowid/widgets/text"
 	"github.com/gcla/gowid/widgets/vpadding"
+
+	"bhyve"
+	"host"
+	"jail"
+	"tui"
 
 	tcell "github.com/gdamore/tcell/v2"
 	log "github.com/sirupsen/logrus"
@@ -79,7 +83,11 @@ var cbsdJailConsoleActive string
 var WIDTH = 18
 var HPAD = 2
 var VPAD = 1
-var cbsdJailsFromDb []*Jail
+
+// Temporary declaration - will be replaced with interface
+var cbsdJailsFromDb []*jail.Jail
+var cbsdVMsFromDb []*bhyve.BhyveVm
+
 var shellProgram = "/bin/sh"
 var stdbufProgram = "/usr/bin/stdbuf"
 var logJstart = "/var/log/jstart.log"
@@ -113,7 +121,7 @@ func GetCbsdDbConnString(readwrite bool) string {
 
 func OpenHelpDialog() {
 	var HelpDialog *dialog.Widget
-	HelpDialog = MakeDialogForJail(
+	HelpDialog = tui.MakeDialogForJail(
 		"",
 		txtProgramName,
 		[]string{txtHelp},
@@ -200,6 +208,7 @@ func MakeActionDialogForJail(jname string, title string, actions []string, actio
 	return retdialog
 }
 
+/*
 func MakeDialogForJail(jname string, title string, txt []string,
 	boolparnames []string, boolpardefaults []bool,
 	strparnames []string, strpardefaults []string,
@@ -305,6 +314,7 @@ func MakeDialogForJail(jname string, title string, txt []string,
 	)
 	return retdialog
 }
+*/
 
 func RunMenuAction(action string) {
 	log.Infof("Menu Action: " + action)
@@ -845,13 +855,9 @@ func main() {
 	f := RedirectLogger(logFileName)
 	defer f.Close()
 
-	curuser, err := user.Current()
-	if err == nil {
-		if curuser.Username == "root" {
-			doas = false
-		}
-	} else {
-		log.Errorf("Error from user.Current(): %s", err)
+	doas, err = host.NeedDoAs()
+	if err != nil {
+		log.Errorf("Error from host.NeedDoAs(): %v", err)
 	}
 
 	//cbsdJlsHeader = cbsdJailsFromDb[0].GetHeaderTitles()
