@@ -12,10 +12,21 @@ import (
 	//"time"
 	//"unicode/utf8"
 
+	"bufio"
+	"os"
+	"os/exec"
+	"sync"
+	"unicode/utf8"
+
 	"github.com/gcla/gowid"
+
 	//"github.com/gcla/gowid/vim"
-	//"github.com/gcla/gowid/widgets/boxadapter"
-	//"github.com/gcla/gowid/widgets/button"
+	"github.com/gcla/gowid/widgets/boxadapter"
+	"github.com/gcla/gowid/widgets/button"
+	"github.com/gcla/gowid/widgets/holder"
+	"github.com/gcla/gowid/widgets/list"
+	"github.com/gcla/gowid/widgets/terminal"
+
 	//"github.com/gcla/gowid/widgets/cellmod"
 	"github.com/gcla/gowid/widgets/checkbox"
 	"github.com/gcla/gowid/widgets/columns"
@@ -26,23 +37,39 @@ import (
 	//"github.com/gcla/gowid/widgets/fill"
 	"github.com/gcla/gowid/widgets/framed"
 	//"github.com/gcla/gowid/widgets/grid"
-	//"github.com/gcla/gowid/widgets/holder"
 	"github.com/gcla/gowid/widgets/hpadding"
 	//"github.com/gcla/gowid/widgets/keypress"
-	//"github.com/gcla/gowid/widgets/list"
 	//"github.com/gcla/gowid/widgets/menu"
 	"github.com/gcla/gowid/widgets/pile"
 	"github.com/gcla/gowid/widgets/styled"
 
-	//"github.com/gcla/gowid/widgets/terminal"
 	"github.com/gcla/gowid/widgets/text"
 	//"github.com/gcla/gowid/widgets/vpadding"
 	//tcell "github.com/gdamore/tcell/v2"
-	//log "github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
+
+	"editwithscrollbar"
 )
 
 var HALIGN_MIDDLE text.Options = text.Options{Align: gowid.HAlignMiddle{}}
 var HALIGN_LEFT text.Options = text.Options{Align: gowid.HAlignLeft{}}
+
+type Tui struct {
+	App        *gowid.App
+	ViewHolder *holder.Widget
+	Console    *terminal.Widget
+	LogText    string
+}
+
+func NewTui(app *gowid.App, view_holder *holder.Widget, console *terminal.Widget) *Tui {
+	res := &Tui{
+		App:        app,
+		ViewHolder: view_holder,
+		Console:    console,
+		LogText:    "",
+	}
+	return res
+}
 
 func MakeDialogForJail(jname string, title string, txt []string,
 	boolparnames []string, boolpardefaults []bool,
@@ -144,6 +171,139 @@ func MakeDialogForJail(jname string, title string, txt []string,
 			BorderStyle:     gowid.MakePaletteRef("dialog"),
 			ButtonStyle:     gowid.MakePaletteRef("white-focus"),
 			Modal:           true,
+			FocusOnWidget:   true,
+		},
+	)
+	return retdialog
+}
+
+func CreateActionsLogDialog(editWidget *edit.Widget, height int) *dialog.Widget {
+	ba := boxadapter.New(
+		styled.New(
+			editwithscrollbar.NewEditWithScrollbar(editWidget),
+			gowid.MakePaletteRef("white"),
+		),
+		height,
+	)
+	actionlogdialog := dialog.New(
+		framed.NewUnicode(ba),
+		dialog.Options{
+			Buttons:         []dialog.Button{dialog.CloseD},
+			Modal:           true,
+			NoShadow:        true,
+			TabToButtons:    true,
+			BackgroundStyle: gowid.MakePaletteRef("bluebg"),
+			BorderStyle:     gowid.MakePaletteRef("dialog"),
+			ButtonStyle:     gowid.MakePaletteRef("white-focus"),
+			FocusOnWidget:   true,
+		},
+	)
+	return actionlogdialog
+}
+
+func (tui *Tui) ExecCommand(title string, command string, args []string) {
+	var cmd *exec.Cmd
+	logspace := edit.New(edit.Options{ReadOnly: true})
+	outdlg := CreateActionsLogDialog(logspace, tui.Console.Height())
+	/*
+		if cbsdActionsDialog != nil {
+			if cbsdActionsDialog.IsOpen() {
+				cbsdActionsDialog.Close(app)
+			}
+		}
+	*/
+	outdlg.Open(tui.ViewHolder, gowid.RenderWithRatio{R: 0.7}, tui.App)
+	tui.App.RedrawTerminal()
+	cmd = exec.Command(command, args...)
+	cmd.Env = os.Environ()
+	cmd.Env = append(cmd.Env, "NOCOLOR=1")
+	cmd.Stderr = cmd.Stdout
+	cmdout, err := cmd.StdoutPipe()
+	defer cmdout.Close()
+	if err != nil {
+		log.Errorf("cmdout creation failed with %s\n", err)
+	}
+	scanner := bufio.NewScanner(cmdout)
+	//scanner.Buffer(make([]byte, MAXBUF), MAXBUF)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		for scanner.Scan() {
+			tui.LogText = logspace.Text() + scanner.Text() + "\n"
+			tui.App.RunThenRenderEvent(gowid.RunFunction(func(app gowid.IApp) {
+				logspace.SetText(tui.LogText, app)
+				logspace.SetCursorPos(utf8.RuneCountInString(logspace.Text()), app)
+			}))
+			//app.RedrawTerminal()
+		}
+		wg.Done()
+	}()
+	err = cmd.Start()
+	if err != nil {
+		log.Errorf("cmd.Start() failed with %s\n", err)
+	}
+	wg.Wait()
+	err = cmd.Wait()
+	if err != nil {
+		log.Errorf("cmd.Wait() failed with %s\n", err)
+	}
+}
+
+func GetStyledWidget(w gowid.IWidget, color string) *styled.Widget {
+	cfocus := color + "-focus"
+	cnofocus := color + "-nofocus"
+	return styled.NewWithRanges(w,
+		[]styled.AttributeRange{{Start: 0, End: -1, Styler: gowid.MakePaletteRef(cnofocus)}},
+		[]styled.AttributeRange{{Start: 0, End: -1, Styler: gowid.MakePaletteRef(cfocus)}},
+	)
+}
+
+func MakeActionDialogForJail(jname string, title string, actions []string, actionfunc []func(jname string)) *dialog.Widget {
+	MakeWidgetChangedFunction := func(actionfunc []func(jname string), ind int, jname string) gowid.WidgetChangedFunction {
+		return func(app gowid.IApp, w gowid.IWidget) { actionfunc[ind](jname) }
+	}
+	var containers []gowid.IContainerWidget
+	var lines *pile.Widget
+	var cb *gowid.WidgetCallback
+	menu := make([]gowid.IWidget, 0)
+
+	var nact int = 0
+	if actions != nil {
+		nact = len(actions)
+	}
+	for i := 0; i < nact; i++ {
+		//	for _, m := range (&Jail{}).GetActionsMenuItems() {
+		mtext := text.New(actions[i], HALIGN_LEFT)
+		mtexts := GetStyledWidget(mtext, "white")
+		mbtn := button.New(mtexts, button.Options{Decoration: button.BareDecoration})
+		cb = &gowid.WidgetCallback{
+			Name:                  "cb_" + mtext.Content().String(),
+			WidgetChangedFunction: MakeWidgetChangedFunction(actionfunc, i, jname),
+		}
+		mbtn.OnClick(cb)
+		menu = append(menu, mbtn)
+	}
+
+	actionlist := list.NewSimpleListWalker(menu)
+	actionlistst := styled.New(list.New(actionlist), gowid.MakePaletteRef("green"))
+	htxt := text.New(title, HALIGN_MIDDLE)
+	htxtst := styled.New(htxt, gowid.MakePaletteRef("magenta"))
+	containers = append(containers, &gowid.ContainerWidget{IWidget: htxtst, D: gowid.RenderFlow{}})
+	containers = append(containers, &gowid.ContainerWidget{IWidget: divider.NewUnicode(), D: gowid.RenderFlow{}})
+	containers = append(containers, &gowid.ContainerWidget{IWidget: actionlistst, D: gowid.RenderFlow{}})
+	lines = pile.New(containers)
+	retdialog := dialog.New(
+		framed.NewSpace(
+			lines,
+		),
+		dialog.Options{
+			Buttons:         []dialog.Button{dialog.CloseD},
+			Modal:           true,
+			NoShadow:        true,
+			TabToButtons:    true,
+			BackgroundStyle: gowid.MakePaletteRef("bluebg"),
+			BorderStyle:     gowid.MakePaletteRef("dialog"),
+			ButtonStyle:     gowid.MakePaletteRef("white-focus"),
 			FocusOnWidget:   true,
 		},
 	)

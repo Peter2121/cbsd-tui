@@ -28,6 +28,7 @@ type BhyveVm struct {
 	OsType     string
 	VncConsole string
 	params     map[string]string
+	jtui       *tui.Tui
 }
 
 const (
@@ -66,6 +67,10 @@ var commandJailStop string = "bstop"
 var commandJailSnap string = "jsnapshot"
 var argJailName = "jname"
 var argSnapName = "snapname"
+
+func (jail *BhyveVm) SetTui(t *tui.Tui) {
+	jail.jtui = t
+}
 
 func (jail *BhyveVm) GetCommandHelp() string {
 	return HELP
@@ -207,6 +212,7 @@ func New() *BhyveVm {
 		OsType:     "",
 		VncConsole: "",
 		params:     make(map[string]string),
+		jtui:       nil,
 	}
 	return res
 }
@@ -220,6 +226,7 @@ func NewBhyveVm(jname string, ip4_addr string, status int, astart int, os_type s
 		OsType:     os_type,
 		VncConsole: vnc_console,
 		params:     make(map[string]string),
+		jtui:       nil,
 	}
 	return res
 }
@@ -768,7 +775,7 @@ func (jail *Jail) ExecuteActionOnKey(tkey int16, vh *holder.Widget, app *gowid.A
 	}
 }
 
-func (jail *Jail) GetSnapshots() [][2]string {
+func (jail *BhyveVm) GetSnapshots() [][2]string {
 	var snap = [2]string{"", ""}
 	retsnap := make([][2]string, 0)
 	var stdout, stderr bytes.Buffer
@@ -776,18 +783,18 @@ func (jail *Jail) GetSnapshots() [][2]string {
 
 	// cbsd jsnapshot jname=jinja1 mode=list header=0 display=snapname,creation
 	args := make([]string, 0)
-	if doas {
-		args = append(args, cbsdProgram)
+	if host.USE_DOAS {
+		args = append(args, host.CBSD_PROGRAM)
 	}
-	args = append(args, "jsnapshot")
-	args = append(args, "jname="+jail.Jname)
+	args = append(args, commandJailSnap)
 	args = append(args, "mode=list")
 	args = append(args, "header=0")
 	args = append(args, "display=snapname,creation")
-	if doas {
-		cmd = exec.Command(doasProgram, args...)
+	args = append(args, fmt.Sprintf("%s=%s", argJailName, jail.Bname))
+	if host.USE_DOAS {
+		cmd = exec.Command(host.DOAS_PROGRAM, args...)
 	} else {
-		cmd = exec.Command(cbsdProgram, args...)
+		cmd = exec.Command(host.CBSD_PROGRAM, args...)
 	}
 	cmd.Env = os.Environ()
 	cmd.Env = append(cmd.Env, "NOCOLOR=1")
@@ -795,7 +802,7 @@ func (jail *Jail) GetSnapshots() [][2]string {
 	cmd.Stderr = &stderr
 	err := cmd.Run()
 	if err != nil {
-		LogError("cmd.Run() failed", err)
+		host.LogError("cmd.Run() failed", err)
 		return retsnap
 	}
 	str_out := string(stdout.Bytes())
@@ -812,7 +819,7 @@ func (jail *Jail) GetSnapshots() [][2]string {
 	return retsnap
 }
 
-func (jail *Jail) OpenSnapActionsDialog(viewHolder *holder.Widget, app *gowid.App) {
+func (jail *BhyveVm) OpenSnapActionsDialog(viewHolder *holder.Widget, app *gowid.App) {
 	var cbsdSnapActionsDialog *dialog.Widget
 	MakeWidgetChangedFunction := func(snapname string) func(jname string) {
 		return func(jname string) {
@@ -827,7 +834,7 @@ func (jail *Jail) OpenSnapActionsDialog(viewHolder *holder.Widget, app *gowid.Ap
 		menulines = append(menulines, s[0]+" ("+s[1]+")")
 		cbfunc = append(cbfunc, MakeWidgetChangedFunction(s[0]))
 	}
-	cbsdSnapActionsDialog = MakeActionDialogForJail(jail.Jname, "Snapshots for "+jail.Jname, menulines, cbfunc)
+	cbsdSnapActionsDialog = tui.MakeActionDialogForJail(jail.Bname, "Snapshots for "+jail.Bname, menulines, cbfunc)
 	cbsdSnapActionsDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
 }
 
@@ -848,7 +855,9 @@ func (jail *BhyveVm) DestroySnapshot(snapname string) {
 	} else {
 		command = host.CBSD_PROGRAM
 	}
-	ExecCommand(txtheader, command, args)
+	if jail.jtui != nil {
+		jail.jtui.ExecCommand(txtheader, command, args)
+	}
 }
 
 func (jail *BhyveVm) OpenDestroySnapshotDialog(snapname string, viewHolder *holder.Widget, app *gowid.App) {

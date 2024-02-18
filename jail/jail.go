@@ -15,6 +15,9 @@ import (
 	"github.com/gcla/gowid/widgets/holder"
 	"github.com/gdamore/tcell"
 	_ "github.com/mattn/go-sqlite3"
+
+	"host"
+	"tui"
 )
 
 type Jail struct {
@@ -24,6 +27,7 @@ type Jail struct {
 	Astart   int
 	Ver      string
 	params   map[string]string
+	jtui     *tui.Tui
 }
 
 const (
@@ -60,6 +64,10 @@ var commandJailLogin string = "jlogin"
 var commandJailStart string = "jstart"
 var commandJailStop string = "jstop"
 var argJailName = "jname"
+
+func (jail *Jail) SetTui(t *tui.Tui) {
+	jail.jtui = t
+}
 
 func (jail *Jail) GetCommandHelp() string {
 	return HELP
@@ -809,19 +817,21 @@ func (jail *Jail) DestroySnapshot(snapname string) {
 	var command string
 	txtheader := "Destroy jail snapshot...\n"
 	args := make([]string, 0)
-	if doas {
-		args = append(args, cbsdProgram)
+	if host.USE_DOAS {
+		args = append(args, host.CBSD_PROGRAM)
 	}
 	args = append(args, "jsnapshot")
 	args = append(args, "mode=destroy")
 	args = append(args, "jname="+jail.Jname)
 	args = append(args, "snapname="+snapname)
-	if doas {
-		command = doasProgram
+	if host.USE_DOAS {
+		command = host.DOAS_PROGRAM
 	} else {
-		command = cbsdProgram
+		command = host.CBSD_PROGRAM
 	}
-	ExecCommand(txtheader, command, args)
+	if jail.jtui != nil {
+		jail.jtui.ExecCommand(txtheader, command, args)
+	}
 }
 
 func (jail *Jail) OpenDestroySnapshotDialog(snapname string, viewHolder *holder.Widget, app *gowid.App) {

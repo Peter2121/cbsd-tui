@@ -8,13 +8,11 @@ import (
 	"os/exec"
 	"os/user"
 	"strings"
-	"sync"
 	"time"
 	"unicode/utf8"
 
 	"github.com/gcla/gowid"
 	"github.com/gcla/gowid/vim"
-	"github.com/gcla/gowid/widgets/boxadapter"
 	"github.com/gcla/gowid/widgets/button"
 	"github.com/gcla/gowid/widgets/cellmod"
 	"github.com/gcla/gowid/widgets/columns"
@@ -36,6 +34,7 @@ import (
 	"github.com/gcla/gowid/widgets/vpadding"
 
 	"bhyve"
+	//"editwithscrollbar"
 	"host"
 	"jail"
 	"tui"
@@ -131,11 +130,12 @@ func OpenHelpDialog() {
 	HelpDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
 }
 
+/*
 func CreateActionsLogDialog(editWidget *edit.Widget) *dialog.Widget {
 	baheight := cbsdJailConsole.Height()
 	ba := boxadapter.New(
 		styled.New(
-			NewEditWithScrollbar(editWidget),
+			editwithscrollbar.NewEditWithScrollbar(editWidget),
 			gowid.MakePaletteRef("white"),
 		),
 		baheight,
@@ -155,6 +155,7 @@ func CreateActionsLogDialog(editWidget *edit.Widget) *dialog.Widget {
 	)
 	return actionlogdialog
 }
+*/
 
 func MakeActionDialogForJail(jname string, title string, actions []string, actionfunc []func(jname string)) *dialog.Widget {
 	MakeWidgetChangedFunction := func(actionfunc []func(jname string), ind int, jname string) gowid.WidgetChangedFunction {
@@ -429,17 +430,16 @@ func GetMenuButton(jail *Jail) *keypress.Widget {
 	return kpbtn
 }
 
+/*
 func ExecCommand(title string, command string, args []string) {
 	var cmd *exec.Cmd
 	logspace := edit.New(edit.Options{ReadOnly: true})
-	outdlg := CreateActionsLogDialog(logspace)
-	/*
-		if cbsdActionsDialog != nil {
-			if cbsdActionsDialog.IsOpen() {
-				cbsdActionsDialog.Close(app)
-			}
-		}
-	*/
+	outdlg := tui.CreateActionsLogDialog(logspace, cbsdJailConsole.Height())
+		//if cbsdActionsDialog != nil {
+		//	if cbsdActionsDialog.IsOpen() {
+		//		cbsdActionsDialog.Close(app)
+		//	}
+		//}
 	outdlg.Open(viewHolder, gowid.RenderWithRatio{R: 0.7}, app)
 	app.RedrawTerminal()
 	cmd = exec.Command(command, args...)
@@ -476,6 +476,7 @@ func ExecCommand(title string, command string, args []string) {
 		log.Errorf("cmd.Wait() failed with %s\n", err)
 	}
 }
+*/
 
 func ExecShellCommand(title string, command string, args []string, logfile string) {
 	var cmd *exec.Cmd
@@ -485,7 +486,7 @@ func ExecShellCommand(title string, command string, args []string, logfile strin
 	buf := make([]byte, MAXBUF)
 	log.Infof("Trying to start %s command with %v arguments", command, args)
 	logspace := edit.New(edit.Options{ReadOnly: true})
-	outdlg := CreateActionsLogDialog(logspace)
+	outdlg := tui.CreateActionsLogDialog(logspace, cbsdJailConsole.Height())
 	/*
 		if cbsdActionsDialog != nil {
 			if cbsdActionsDialog.IsOpen() {
@@ -912,6 +913,11 @@ func main() {
 		Palette: &palette,
 		Log:     log.StandardLogger(),
 	})
+
+	main_tui := tui.NewTui(app, viewHolder, cbsdJailConsole)
+	for _, jail := range cbsdJailsFromDb {
+		jail.SetTui(main_tui)
+	}
 
 	ExitOnErr(err)
 	SetJailListFocus()

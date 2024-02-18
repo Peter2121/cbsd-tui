@@ -1,19 +1,16 @@
-module tui
+module editwithscrollbar
 
 go 1.19
 
 replace github.com/gcla/gowid => ../../gowid
 
-replace editwithscrollbar => ../editwithscrollbar
-
 require (
-	editwithscrollbar v0.0.1
 	github.com/gcla/gowid v1.4.1-0.20221101015339-ce29e21d2804
+	github.com/gdamore/tcell/v2 v2.5.0
 )
 
 require (
 	github.com/gdamore/encoding v1.0.0 // indirect
-	github.com/gdamore/tcell/v2 v2.5.0 // indirect
 	github.com/hashicorp/golang-lru v0.5.1 // indirect
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect

@@ -12,17 +12,20 @@ replace tui => ./tui
 
 replace host => ./host
 
+replace editwithscrollbar => ./editwithscrollbar
+
 require (
 	bhyve v0.0.1
 	github.com/gcla/gowid v1.4.1-0.20221101015339-ce29e21d2804
 	github.com/gdamore/tcell/v2 v2.5.0
 	github.com/sirupsen/logrus v1.4.2
+	host v0.0.1
 	jail v0.0.1
 	tui v0.0.1
-	host v0.0.1
 )
 
 require (
+	editwithscrollbar v0.0.1 // indirect
 	github.com/creack/pty v1.1.15 // indirect
 	github.com/gdamore/encoding v1.0.0 // indirect
 	github.com/gdamore/tcell v1.3.1-0.20200115030318-bff4943f9a29 // indirect

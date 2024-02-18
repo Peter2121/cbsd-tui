@@ -3,6 +3,8 @@ module jail
 go 1.19
 
 replace github.com/gcla/gowid => ../../gowid
+replace tui => ./tui
+replace host => ./host
 
 require (
 	github.com/gcla/gowid v1.4.1-0.20221101015339-ce29e21d2804
@@ -10,6 +12,8 @@ require (
 	github.com/gdamore/tcell/v2 v2.5.0
 	github.com/mattn/go-sqlite3 v1.14.12
 	github.com/sirupsen/logrus v1.4.2
+	tui v0.0.1
+	host v0.0.1
 )
 
 require (
