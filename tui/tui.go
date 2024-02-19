@@ -16,6 +16,7 @@ import (
 	"os"
 	"os/exec"
 	"sync"
+	"time"
 	"unicode/utf8"
 
 	"github.com/gcla/gowid"
@@ -53,6 +54,8 @@ import (
 
 var HALIGN_MIDDLE text.Options = text.Options{Align: gowid.HAlignMiddle{}}
 var HALIGN_LEFT text.Options = text.Options{Align: gowid.HAlignLeft{}}
+
+var CbsdJailConsoleActive = ""
 
 type Tui struct {
 	App        *gowid.App
@@ -308,4 +311,98 @@ func MakeActionDialogForJail(jname string, title string, actions []string, actio
 		},
 	)
 	return retdialog
+}
+
+func (tui *Tui) ExecShellCommand(title string, command string, args []string, logfile string) {
+	var cmd *exec.Cmd
+	var file *os.File
+	var err error
+	MAXBUF := 1000000
+	buf := make([]byte, MAXBUF)
+	log.Infof("Trying to start %s command with %v arguments", command, args)
+	logspace := edit.New(edit.Options{ReadOnly: true})
+	outdlg := CreateActionsLogDialog(logspace, tui.Console.Height())
+	/*
+		if cbsdActionsDialog != nil {
+			if cbsdActionsDialog.IsOpen() {
+				cbsdActionsDialog.Close(app)
+			}
+		}
+	*/
+	outdlg.Open(tui.ViewHolder, gowid.RenderWithRatio{R: 0.7}, tui.App)
+	tui.App.RedrawTerminal()
+	cmd = exec.Command(command, args...)
+	cmd.Env = os.Environ()
+	cmd.Env = append(cmd.Env, "NOCOLOR=1")
+	file, err = os.OpenFile(logfile, os.O_TRUNC|os.O_RDWR, 0644)
+	if os.IsNotExist(err) {
+		file, err = os.OpenFile(logfile, os.O_CREATE|os.O_RDWR, 0644)
+		if err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+	file.Close()
+	chanfread := make(chan int)
+
+	go func() {
+		var rbytes int
+		file, err = os.OpenFile(logfile, os.O_RDONLY|os.O_SYNC, 0644)
+		if err != nil {
+			log.Fatal(err)
+		}
+		fsize, err := file.Stat()
+		if err != nil {
+			log.Fatal(err)
+		}
+		oldfsize := fsize.Size()
+		for true {
+			fsize, err = file.Stat()
+			if err != nil {
+				log.Fatal(err)
+			}
+			if fsize.Size() > oldfsize {
+				oldfsize = fsize.Size()
+				if fsize.Size() > int64(MAXBUF) {
+					log.Errorf(command + " produced output is too long, it will be truncated\n")
+					break
+				}
+				rbytes, err = file.Read(buf)
+				if rbytes > 0 {
+					tui.LogText = logspace.Text() + string(buf[:rbytes]) + "\n"
+					tui.App.RunThenRenderEvent(gowid.RunFunction(func(app gowid.IApp) {
+						logspace.SetText(tui.LogText, app)
+						logspace.SetCursorPos(utf8.RuneCountInString(logspace.Text()), app)
+						app.Sync()
+					}))
+					//app.RedrawTerminal()
+				}
+			}
+			select {
+			case <-chanfread:
+				break
+			default:
+				time.Sleep(300 * time.Millisecond)
+			}
+		}
+		file.Close()
+	}()
+
+	err = cmd.Start()
+	if err != nil {
+		log.Errorf("cmd.Start() failed with %s\n", err)
+	}
+	err = cmd.Wait()
+	if err != nil {
+		log.Errorf("cmd.Wait() failed with %s\n", err)
+	}
+	chanfread <- 1
+}
+
+func (tui *Tui) SendTerminalCommand(cmd string) {
+	tui.Console.Write([]byte(cmd + "\n"))
+	time.Sleep(200 * time.Millisecond)
 }

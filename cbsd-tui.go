@@ -9,7 +9,6 @@ import (
 	"os/user"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/gcla/gowid"
 	"github.com/gcla/gowid/vim"
@@ -18,7 +17,6 @@ import (
 	"github.com/gcla/gowid/widgets/columns"
 	"github.com/gcla/gowid/widgets/dialog"
 	"github.com/gcla/gowid/widgets/divider"
-	"github.com/gcla/gowid/widgets/edit"
 	"github.com/gcla/gowid/widgets/fill"
 	"github.com/gcla/gowid/widgets/framed"
 	"github.com/gcla/gowid/widgets/grid"
@@ -377,10 +375,12 @@ func RefreshJailList() {
 	SetJailListFocus()
 }
 
+/*
 func UpdateJailStatus(jail *Jail) {
 	_, _ = jail.UpdateJailFromDb(GetCbsdDbConnString(false))
 	UpdateJailLine(jail)
 }
+*/
 
 func UpdateJailLine(jail *Jail) {
 	for _, line := range cbsdListLines {
@@ -476,7 +476,6 @@ func ExecCommand(title string, command string, args []string) {
 		log.Errorf("cmd.Wait() failed with %s\n", err)
 	}
 }
-*/
 
 func ExecShellCommand(title string, command string, args []string, logfile string) {
 	var cmd *exec.Cmd
@@ -487,13 +486,11 @@ func ExecShellCommand(title string, command string, args []string, logfile strin
 	log.Infof("Trying to start %s command with %v arguments", command, args)
 	logspace := edit.New(edit.Options{ReadOnly: true})
 	outdlg := tui.CreateActionsLogDialog(logspace, cbsdJailConsole.Height())
-	/*
-		if cbsdActionsDialog != nil {
-			if cbsdActionsDialog.IsOpen() {
-				cbsdActionsDialog.Close(app)
-			}
-		}
-	*/
+		//if cbsdActionsDialog != nil {
+		//	if cbsdActionsDialog.IsOpen() {
+		//		cbsdActionsDialog.Close(app)
+		//	}
+		//}
 	outdlg.Open(viewHolder, gowid.RenderWithRatio{R: 0.7}, app)
 	app.RedrawTerminal()
 	cmd = exec.Command(command, args...)
@@ -566,6 +563,7 @@ func ExecShellCommand(title string, command string, args []string, logfile strin
 	}
 	chanfread <- 1
 }
+*/
 
 func LogError(strerr string, err error) {
 	log.Errorf(strerr+": %w", err)

@@ -12,7 +12,6 @@ import (
 	"github.com/gcla/gowid"
 	"github.com/gcla/gowid/widgets/dialog"
 	"github.com/gcla/gowid/widgets/edit"
-	"github.com/gcla/gowid/widgets/holder"
 	"github.com/gdamore/tcell"
 	_ "github.com/mattn/go-sqlite3"
 
@@ -65,6 +64,9 @@ var commandJailLogin string = "blogin"
 var commandJailStart string = "bstart"
 var commandJailStop string = "bstop"
 var commandJailSnap string = "jsnapshot"
+var commandJailClone string = "bclone"
+var commandJailExport string = "bexport"
+var commandJailDestroy string = "bdestroy"
 var argJailName = "jname"
 var argSnapName = "snapname"
 
@@ -411,138 +413,138 @@ func (jail *BhyveVm) UpdateJailFromDb(dbname string) (bool, error) {
 	return true, nil
 }
 
-func (jail *Jail) Export(*holder.Widget, *gowid.App) {
+func (jail *BhyveVm) Export() {
 	// cbsd jexport jname=nim1
 	var command string
-	txtheader := "Exporting jail...\n"
+	txtheader := "Exporting VM...\n"
 
 	args := make([]string, 0)
-	if doas {
-		args = append(args, cbsdProgram)
+	if host.USE_DOAS {
+		args = append(args, host.CBSD_PROGRAM)
 	}
-	args = append(args, "jexport")
-	args = append(args, "jname="+jail.Jname)
+	args = append(args, commandJailExport)
+	args = append(args, fmt.Sprintf("%s=%s", argJailName, jail.Bname))
 
-	if doas {
-		command = doasProgram
+	if host.USE_DOAS {
+		command = host.DOAS_PROGRAM
 	} else {
-		command = cbsdProgram
+		command = host.CBSD_PROGRAM
 	}
-	ExecCommand(txtheader, command, args)
+	jail.jtui.ExecCommand(txtheader, command, args)
 }
 
-func (jail *Jail) Destroy() {
+func (jail *BhyveVm) Destroy() {
 	// cbsd jdestroy jname=nim1
 	var command string
-	txtheader := "Destroying jail " + jail.Jname + "...\n"
+	txtheader := "Destroying VM " + jail.Bname + "...\n"
 	args := make([]string, 0)
-	if doas {
-		args = append(args, cbsdProgram)
+	if host.USE_DOAS {
+		args = append(args, host.CBSD_PROGRAM)
 	}
-	args = append(args, "jdestroy")
-	args = append(args, "jname="+jail.Jname)
-	if doas {
-		command = doasProgram
+	args = append(args, commandJailDestroy)
+	args = append(args, fmt.Sprintf("%s=%s", argJailName, jail.Bname))
+	if host.USE_DOAS {
+		command = host.DOAS_PROGRAM
 	} else {
-		command = cbsdProgram
+		command = host.CBSD_PROGRAM
 	}
-	ExecCommand(txtheader, command, args)
+	jail.jtui.ExecCommand(txtheader, command, args)
 	RefreshJailList()
 }
 
-func (jail *Jail) OpenDestroyDialog(viewHolder *holder.Widget, app *gowid.App) {
+func (jail *BhyveVm) OpenDestroyDialog() {
 	var cbsdDestroyJailDialog *dialog.Widget
 	cbsdDestroyJailDialog = tui.MakeDialogForJail(
-		jail.Jname,
-		"Destroy jail "+jail.Jname,
-		[]string{"Really destroy jail " + jail.Jname + "??"},
+		jail.Bname,
+		"Destroy VM "+jail.Bname,
+		[]string{"Really destroy VM " + jail.Bname + "??"},
 		nil, nil, nil, nil,
 		func(jname string, boolparams []bool, strparams []string) {
-			cbsdDestroyJailDialog.Close(app)
+			cbsdDestroyJailDialog.Close(jail.jtui.App)
 			jail.Destroy()
 		},
 	)
-	cbsdDestroyJailDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
+	cbsdDestroyJailDialog.Open(jail.jtui.ViewHolder, gowid.RenderWithRatio{R: 0.3}, jail.jtui.App)
 }
 
-func (jail *Jail) Snapshot(snapname string) {
+func (jail *BhyveVm) Snapshot(snapname string) {
 	// cbsd jsnapshot mode=create snapname=gettimeofday jname=nim1
 	var command string
-	txtheader := "Creating jail snapshot...\n"
+	txtheader := "Creating VM snapshot...\n"
 	args := make([]string, 0)
-	if doas {
-		args = append(args, cbsdProgram)
+	if host.USE_DOAS {
+		args = append(args, host.CBSD_PROGRAM)
 	}
-	args = append(args, "jsnapshot")
+	args = append(args, commandJailSnap)
 	args = append(args, "mode=create")
-	args = append(args, "snapname="+snapname)
-	args = append(args, "jname="+jail.Jname)
-	if doas {
-		command = doasProgram
+	args = append(args, fmt.Sprintf("snapname=%s", snapname))
+	args = append(args, fmt.Sprintf("%s=%s", argJailName, jail.Bname))
+	if host.USE_DOAS {
+		command = host.DOAS_PROGRAM
 	} else {
-		command = cbsdProgram
+		command = host.CBSD_PROGRAM
 	}
-	ExecCommand(txtheader, command, args)
+	jail.jtui.ExecCommand(txtheader, command, args)
 }
 
-func (jail *Jail) OpenSnapshotDialog(viewHolder *holder.Widget, app *gowid.App) {
+func (jail *BhyveVm) OpenSnapshotDialog() {
 	var cbsdSnapshotJailDialog *dialog.Widget
 	cbsdSnapshotJailDialog = tui.MakeDialogForJail(
-		jail.Jname,
-		"Snapshot jail "+jail.Jname,
+		jail.Bname,
+		"Snapshot VM "+jail.Bname,
 		nil, nil, nil,
 		[]string{"Snapshot name: "}, []string{"gettimeofday"},
 		func(jname string, boolparams []bool, strparams []string) {
-			cbsdSnapshotJailDialog.Close(app)
+			cbsdSnapshotJailDialog.Close(jail.jtui.App)
 			jail.Snapshot(strparams[0])
 		},
 	)
-	cbsdSnapshotJailDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
+	cbsdSnapshotJailDialog.Open(jail.jtui.ViewHolder, gowid.RenderWithRatio{R: 0.3}, jail.jtui.App)
 }
 
-func (jail *Jail) Clone(jnewjname string, jnewhname string, newip string) {
+func (jail *BhyveVm) Clone(jnewjname string, jnewhname string, newip string) {
 	//log.Infof("Clone %s to %s (%s) IP %s", jname, jnewjname, jnewhname, newip)
 	// cbsd jclone old=jail1 new=jail1clone host_hostname=jail1clone.domain.local ip4_addr=DHCP checkstate=0
 	var command string
-	txtheader := "Cloning jail...\n"
+	txtheader := "Cloning VM...\n"
 
 	args := make([]string, 0)
-	if doas {
-		args = append(args, cbsdProgram)
+	if host.USE_DOAS {
+		args = append(args, host.CBSD_PROGRAM)
 	}
-	args = append(args, "jclone")
-	args = append(args, "old="+jail.Jname)
-	args = append(args, "new="+jnewjname)
-	args = append(args, "host_hostname="+jnewhname)
-	args = append(args, "ip4_addr="+newip)
+	args = append(args, commandJailClone)
+	args = append(args, fmt.Sprintf("old=%s", jail.Bname))
+	args = append(args, fmt.Sprintf("new=%s", jnewjname))
+	args = append(args, fmt.Sprintf("host_hostname=%s", jnewhname))
+	args = append(args, fmt.Sprintf("ip4_addr=%s", newip))
 	args = append(args, "checkstate=0")
 
-	if doas {
-		command = doasProgram
+	if host.USE_DOAS {
+		command = host.DOAS_PROGRAM
 	} else {
-		command = cbsdProgram
+		command = host.CBSD_PROGRAM
 	}
-	ExecCommand(txtheader, command, args)
+	jail.jtui.ExecCommand(txtheader, command, args)
 	RefreshJailList()
 }
 
-func (jail *Jail) OpenCloneDialog(viewHolder *holder.Widget, app *gowid.App) {
+func (jail *BhyveVm) OpenCloneDialog() {
 	var cbsdCloneJailDialog *dialog.Widget
 	cbsdCloneJailDialog = tui.MakeDialogForJail(
-		jail.Jname,
-		"Clone jail "+jail.Jname,
+		jail.Bname,
+		"Clone VM "+jail.Bname,
 		nil, nil, nil,
 		[]string{"New jail name: ", "New host name: ", "New IP address: "},
-		[]string{jail.Jname + "clone", jail.Jname, "DHCP"},
+		[]string{jail.Bname + "clone", jail.Bname, "DHCP"},
 		func(jname string, boolparams []bool, strparams []string) {
-			cbsdCloneJailDialog.Close(app)
+			cbsdCloneJailDialog.Close(jail.jtui.App)
 			jail.Clone(strparams[0], strparams[1], strparams[2])
 		},
 	)
-	cbsdCloneJailDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
+	cbsdCloneJailDialog.Open(jail.jtui.ViewHolder, gowid.RenderWithRatio{R: 0.3}, jail.jtui.App)
 }
 
-func (jail *Jail) Edit(astart bool, version string, ip string) {
+func (jail *BhyveVm) Edit(astart bool, version string, ip string) {
 	if astart != jail.GetAutoStartBool() {
 		if astart {
 			jail.SetAstart(1)
@@ -558,78 +560,78 @@ func (jail *Jail) Edit(astart bool, version string, ip string) {
 			jail.SetAddr(ip)
 		}
 	}
-	_, err := jail.PutJailToDb(GetCbsdDbConnString(true))
+	_, err := jail.PutJailToDb(host.GetCbsdDbConnString(true))
 	if err != nil {
 		panic(err)
 	}
 	UpdateJailLine(jail)
 }
 
-func (jail *Jail) OpenEditDialog(viewHolder *holder.Widget, app *gowid.App) {
+func (jail *BhyveVm) OpenEditDialog() {
 	var cbsdEditJailDialog *dialog.Widget
 	if !jail.IsRunning() {
 		cbsdEditJailDialog = tui.MakeDialogForJail(
-			jail.Jname,
-			"Edit jail "+jail.Jname,
+			jail.Bname,
+			"Edit VM "+jail.Bname,
 			nil,
 			[]string{"Autostart "}, []bool{jail.GetAutoStartBool()},
 			[]string{"Version: ", "IP address: "},
 			[]string{jail.GetVer(), jail.GetAddr()},
 			func(jname string, boolparams []bool, strparams []string) {
-				cbsdEditJailDialog.Close(app)
+				cbsdEditJailDialog.Close(jail.jtui.App)
 				jail.Edit(boolparams[0], strparams[0], strparams[1])
 			},
 		)
 	} else {
 		cbsdEditJailDialog = tui.MakeDialogForJail(
-			jail.Jname,
-			"Edit jail "+jail.Jname,
+			jail.Bname,
+			"Edit VM "+jail.Bname,
 			nil,
 			[]string{"Autostart "}, []bool{jail.GetAutoStartBool()},
 			[]string{"Version: "},
 			[]string{jail.GetVer()},
 			func(jname string, boolparams []bool, strparams []string) {
-				cbsdEditJailDialog.Close(app)
+				cbsdEditJailDialog.Close(jail.jtui.App)
 				jail.Edit(boolparams[0], strparams[0], "")
 			},
 		)
 	}
-	cbsdEditJailDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
+	cbsdEditJailDialog.Open(jail.jtui.ViewHolder, gowid.RenderWithRatio{R: 0.3}, jail.jtui.App)
 }
 
-func (jail *Jail) View(viewHolder *holder.Widget, app *gowid.App) {
+func (jail *BhyveVm) View() {
 	viewspace := edit.New(edit.Options{ReadOnly: true})
-	outdlg := CreateActionsLogDialog(viewspace)
-	outdlg.Open(viewHolder, gowid.RenderWithRatio{R: 0.7}, app)
-	viewspace.SetText(jail.GetJailViewString(), app)
-	app.RedrawTerminal()
+	outdlg := tui.CreateActionsLogDialog(viewspace, jail.jtui.Console.Height())
+	outdlg.Open(jail.jtui.ViewHolder, gowid.RenderWithRatio{R: 0.7}, jail.jtui.App)
+	viewspace.SetText(jail.GetJailViewString(), jail.jtui.App)
+	jail.jtui.App.RedrawTerminal()
 }
 
-func (jail *Jail) StartStop(viewHolder *holder.Widget, app *gowid.App) {
+func (jail *BhyveVm) StartStop() {
 	txtheader := ""
 	var args []string
 	var command string
 
 	if jail.IsRunning() {
-		if cbsdJailConsoleActive == jail.Jname { // TODO: don't use cbsdJailConsoleActive directly
-			SendTerminalCommand("exit")
-			cbsdJailConsoleActive = ""
+		if tui.CbsdJailConsoleActive == jail.Bname {
+			jail.jtui.SendTerminalCommand("exit")
+			tui.CbsdJailConsoleActive = ""
 		}
-		txtheader = "Stopping jail...\n"
-		if doas {
-			args = append(args, cbsdProgram)
+		txtheader = "Stopping VM...\n"
+		if host.USE_DOAS {
+			args = append(args, host.CBSD_PROGRAM)
 		}
 		args = append(args, commandJailStop)
 		args = append(args, "inter=1")
-		args = append(args, "jname="+jail.Jname)
-		if doas {
-			command = doasProgram
+		args = append(args, fmt.Sprintf("%s=%s", argJailName, jail.Bname))
+		if host.USE_DOAS {
+			command = host.DOAS_PROGRAM
 		} else {
-			command = cbsdProgram
+			command = host.CBSD_PROGRAM
 		}
-		ExecCommand(txtheader, command, args)
+		jail.jtui.ExecCommand(txtheader, command, args)
 	} else if jail.IsRunnable() {
-		txtheader = "Starting jail...\n"
+		txtheader = "Starting VM...\n"
 		/*
 			if USE_DOAS {
 				args = append(args, "cbsd")
@@ -639,10 +641,10 @@ func (jail *Jail) StartStop(viewHolder *holder.Widget, app *gowid.App) {
 			args = append(args, "quiet=1") // Temporary workaround for lock reading stdout when jail service use stderr
 			args = append(args, "jname="+jail.Name)
 		*/
-		command = shellProgram
+		command = host.SHELL_PROGRAM
 		script, err := jail.CreateScriptStartJail()
 		if err != nil {
-			LogError("Cannot create jstart script", err)
+			host.LogError("Cannot create jstart script", err)
 			if script != "" {
 				os.Remove(script)
 			}
@@ -650,7 +652,7 @@ func (jail *Jail) StartStop(viewHolder *holder.Widget, app *gowid.App) {
 		}
 		defer os.Remove(script)
 		args = append(args, script)
-		ExecShellCommand(txtheader, command, args, logJstart)
+		jail.jtui.ExecShellCommand(txtheader, command, args, host.LOGFILE_JSTART)
 	}
 	UpdateJailStatus(jail)
 }
@@ -665,28 +667,28 @@ func (jail *BhyveVm) GetLoginCommand() string {
 	return cmd
 }
 
-func (jail *Jail) CreateScriptStartJail() (string, error) {
+func (jail *BhyveVm) CreateScriptStartJail() (string, error) {
 	cmd := ""
 	file, err := ioutil.TempFile("", "jail_start_")
 	if err != nil {
 		return "", err
 	}
-	file.WriteString("#!" + shellProgram + "\n")
-	cmd += stdbufProgram
+	file.WriteString("#!" + host.SHELL_PROGRAM + "\n")
+	cmd += host.STDBUF_PROGRAM
 	cmd += " -o"
 	//cmd += " 0 "
 	cmd += " L "
-	if doas {
-		cmd += doasProgram
+	if host.USE_DOAS {
+		cmd += host.DOAS_PROGRAM
 		cmd += " "
-		cmd += cbsdProgram
+		cmd += host.CBSD_PROGRAM
 	} else {
-		cmd += cbsdProgram
+		cmd += host.CBSD_PROGRAM
 	}
 	cmd += " "
 	cmd += jail.GetStartCommand()
 	cmd += " > "
-	cmd += logJstart
+	cmd += host.LOGFILE_JSTART
 	_, err = file.WriteString(cmd + "\n")
 	if err != nil {
 		return file.Name(), err
@@ -694,7 +696,7 @@ func (jail *Jail) CreateScriptStartJail() (string, error) {
 	return file.Name(), nil
 }
 
-func (jail *Jail) OpenActionDialog(viewHolder *holder.Widget, app *gowid.App) {
+func (jail *BhyveVm) OpenActionDialog() {
 	var cbsdActionsDialog *dialog.Widget
 	var MenuLines []string
 	if jail.IsRunning() {
@@ -704,73 +706,73 @@ func (jail *Jail) OpenActionDialog(viewHolder *holder.Widget, app *gowid.App) {
 	} else {
 		MenuLines = jail.GetNonRunnableActionsMenuItems()
 	}
-	cbsdActionsDialog = MakeActionDialogForJail(jail.Jname, "Actions for "+jail.Jname, MenuLines,
+	cbsdActionsDialog = tui.MakeActionDialogForJail(jail.Bname, "Actions for "+jail.Bname, MenuLines,
 		[]func(jname string){
 			func(jname string) {
-				cbsdActionsDialog.Close(app)
-				jail.StartStop(viewHolder, app)
+				cbsdActionsDialog.Close(jail.jtui.App)
+				jail.StartStop()
 			},
 			func(jname string) {
-				cbsdActionsDialog.Close(app)
-				jail.OpenSnapshotDialog(viewHolder, app)
+				cbsdActionsDialog.Close(jail.jtui.App)
+				jail.OpenSnapshotDialog()
 			},
 			func(jname string) {
-				cbsdActionsDialog.Close(app)
-				jail.OpenSnapActionsDialog(viewHolder, app)
+				cbsdActionsDialog.Close(jail.jtui.App)
+				jail.OpenSnapActionsDialog()
 			},
 			func(jname string) {
-				cbsdActionsDialog.Close(app)
-				jail.View(viewHolder, app)
+				cbsdActionsDialog.Close(jail.jtui.App)
+				jail.View()
 			},
 			func(jname string) {
-				cbsdActionsDialog.Close(app)
-				jail.OpenEditDialog(viewHolder, app)
+				cbsdActionsDialog.Close(jail.jtui.App)
+				jail.OpenEditDialog()
 			},
 			func(jname string) {
-				cbsdActionsDialog.Close(app)
-				jail.OpenCloneDialog(viewHolder, app)
+				cbsdActionsDialog.Close(jail.jtui.App)
+				jail.OpenCloneDialog()
 			},
 			func(jname string) {
-				cbsdActionsDialog.Close(app)
-				jail.Export(viewHolder, app)
+				cbsdActionsDialog.Close(jail.jtui.App)
+				jail.Export()
 			},
 			func(jname string) {
-				cbsdActionsDialog.Close(app)
-				jail.OpenDestroyDialog(viewHolder, app)
+				cbsdActionsDialog.Close(jail.jtui.App)
+				jail.OpenDestroyDialog()
 			},
 			func(jname string) {},
 		},
 	)
-	cbsdActionsDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
+	cbsdActionsDialog.Open(jail.jtui.ViewHolder, gowid.RenderWithRatio{R: 0.3}, jail.jtui.App)
 }
 
-func (jail *Jail) ExecuteActionOnCommand(command string, vh *holder.Widget, app *gowid.App) {
+func (jail *BhyveVm) ExecuteActionOnCommand(command string) {
 	switch command {
 	case ACTIONS: // Actions Menu
-		jail.OpenActionDialog(vh, app)
+		jail.OpenActionDialog()
 	case VIEW: // View
-		jail.View(vh, app)
+		jail.View()
 	case EDIT: // Edit
-		jail.OpenEditDialog(vh, app)
+		jail.OpenEditDialog()
 	case CLONE: // Clone
-		jail.OpenCloneDialog(vh, app)
+		jail.OpenCloneDialog()
 	case EXPORT: // Export
-		jail.Export(vh, app)
+		jail.Export()
 	case CREATESNAP: // Create Snapshot
-		jail.OpenSnapshotDialog(vh, app)
+		jail.OpenSnapshotDialog()
 	case DESTROY: // Destroy
-		jail.OpenDestroyDialog(vh, app)
+		jail.OpenDestroyDialog()
 	case DELSNAP: // Destroy Snapshots
-		jail.OpenSnapActionsDialog(vh, app)
+		jail.OpenSnapActionsDialog()
 	case STARTSTOP: // Start/Stop
-		jail.StartStop(vh, app)
+		jail.StartStop()
 	}
 }
 
-func (jail *Jail) ExecuteActionOnKey(tkey int16, vh *holder.Widget, app *gowid.App) {
+func (jail *BhyveVm) ExecuteActionOnKey(tkey int16) {
 	for i, k := range keysBottomMenu {
 		if int16(k) == tkey {
-			jail.ExecuteActionOnCommand(strBottomMenuText2[i], vh, app)
+			jail.ExecuteActionOnCommand(strBottomMenuText2[i])
 		}
 	}
 }
@@ -819,12 +821,12 @@ func (jail *BhyveVm) GetSnapshots() [][2]string {
 	return retsnap
 }
 
-func (jail *BhyveVm) OpenSnapActionsDialog(viewHolder *holder.Widget, app *gowid.App) {
+func (jail *BhyveVm) OpenSnapActionsDialog() {
 	var cbsdSnapActionsDialog *dialog.Widget
 	MakeWidgetChangedFunction := func(snapname string) func(jname string) {
 		return func(jname string) {
-			cbsdSnapActionsDialog.Close(app)
-			jail.OpenDestroySnapshotDialog(snapname, viewHolder, app)
+			cbsdSnapActionsDialog.Close(jail.jtui.App)
+			jail.OpenDestroySnapshotDialog(snapname)
 		}
 	}
 	snaps := jail.GetSnapshots()
@@ -835,7 +837,7 @@ func (jail *BhyveVm) OpenSnapActionsDialog(viewHolder *holder.Widget, app *gowid
 		cbfunc = append(cbfunc, MakeWidgetChangedFunction(s[0]))
 	}
 	cbsdSnapActionsDialog = tui.MakeActionDialogForJail(jail.Bname, "Snapshots for "+jail.Bname, menulines, cbfunc)
-	cbsdSnapActionsDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
+	cbsdSnapActionsDialog.Open(jail.jtui.ViewHolder, gowid.RenderWithRatio{R: 0.3}, jail.jtui.App)
 }
 
 func (jail *BhyveVm) DestroySnapshot(snapname string) {
@@ -860,7 +862,7 @@ func (jail *BhyveVm) DestroySnapshot(snapname string) {
 	}
 }
 
-func (jail *BhyveVm) OpenDestroySnapshotDialog(snapname string, viewHolder *holder.Widget, app *gowid.App) {
+func (jail *BhyveVm) OpenDestroySnapshotDialog(snapname string) {
 	var cbsdDestroySnapDialog *dialog.Widget
 	cbsdDestroySnapDialog = tui.MakeDialogForJail(
 		jail.Bname,
@@ -868,11 +870,11 @@ func (jail *BhyveVm) OpenDestroySnapshotDialog(snapname string, viewHolder *hold
 		[]string{"Really destroy snapshot " + snapname + "\nof jail " + jail.Bname + "??"},
 		nil, nil, nil, nil,
 		func(jname string, boolparams []bool, strparams []string) {
-			cbsdDestroySnapDialog.Close(app)
+			cbsdDestroySnapDialog.Close(jail.jtui.App)
 			jail.DestroySnapshot(snapname)
 		},
 	)
-	cbsdDestroySnapDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
+	cbsdDestroySnapDialog.Open(jail.jtui.ViewHolder, gowid.RenderWithRatio{R: 0.3}, jail.jtui.App)
 }
 
 func (jail *BhyveVm) GetAllParams() []string {

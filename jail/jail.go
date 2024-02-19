@@ -626,7 +626,8 @@ func (jail *Jail) StartStop(viewHolder *holder.Widget, app *gowid.App) {
 		args = append(args, script)
 		ExecShellCommand(txtheader, command, args, logJstart)
 	}
-	UpdateJailStatus(jail)
+	_, _ = jail.UpdateJailFromDb(host.GetCbsdDbConnString(false))
+	UpdateJailLine(jail)
 }
 
 func (jail *Jail) GetStartCommand() string {
