@@ -31,6 +31,8 @@ import (
 	"github.com/gcla/gowid/widgets/text"
 	"github.com/gcla/gowid/widgets/vpadding"
 
+	//"github.com/quasilyte/gsignal"
+
 	"bhyve"
 	//"editwithscrollbar"
 	"host"
@@ -321,10 +323,10 @@ func RunMenuAction(action string) {
 	switch action {
 	// "[F1]Help ",      "[F2]Actions Menu ",    "[F3]View ",     "[F4]Edit ",     "[F5]Clone ",
 	// "[F6]Export ",    "[F7]Create Snapshot ", "[F8]Destroy ",  "[F10]Exit ",    "[F11]List Snapshots ", "[F12]Start/Stop"
-	case (&Jail{}).GetCommandHelp(): // Help
+	case jail.GetCommandHelp(): // Help
 		OpenHelpDialog()
 		return
-	case (&Jail{}).GetCommandExit(): // Exit
+	case jail.GetCommandExit(): // Exit
 		app.Quit()
 	}
 
@@ -333,10 +335,10 @@ func RunMenuAction(action string) {
 		return
 	}
 	log.Infof("JailName: " + curjail.GetName())
-	curjail.ExecuteActionOnCommand(action, viewHolder, app)
+	curjail.ExecuteActionOnCommand(action)
 }
 
-func GetSelectedJail() *Jail {
+func GetSelectedJail() *jail.Jail {
 	curpos := GetSelectedPosition()
 	if curpos < 0 {
 		return nil
@@ -354,7 +356,7 @@ func GetSelectedPosition() int {
 
 func RefreshJailList() {
 	var err error
-	cbsdJailsFromDb, err = GetJailsFromDb(GetCbsdDbConnString(false))
+	cbsdJailsFromDb, err = jail.GetJailsFromDb(GetCbsdDbConnString(false))
 	if err != nil {
 		panic(err)
 	}
@@ -382,7 +384,7 @@ func UpdateJailStatus(jail *Jail) {
 }
 */
 
-func UpdateJailLine(jail *Jail) {
+func UpdateJailLine(jail *jail.Jail) {
 	for _, line := range cbsdListLines {
 		btn := line[0].(*keypress.Widget).SubWidget().(*cellmod.Widget).SubWidget().(*button.Widget)
 		txt := btn.SubWidget().(*styled.Widget).SubWidget().(*text.Widget)
@@ -401,7 +403,7 @@ func UpdateJailLine(jail *Jail) {
 	}
 }
 
-func GetMenuButton(jail *Jail) *keypress.Widget {
+func GetMenuButton(jail *jail.Jail) *keypress.Widget {
 	btxt := text.New(jail.GetName(), HALIGN_MIDDLE)
 	style := GetJailStyle(jail.GetStatus(), jail.GetAstart())
 	txts := GetStyledWidget(btxt, style)
@@ -569,8 +571,8 @@ func LogError(strerr string, err error) {
 	log.Errorf(strerr+": %w", err)
 }
 
-func GetJailByName(jname string) *Jail {
-	var jail *Jail = nil
+func GetJailByName(jname string) *jail.Jail {
+	var jail *jail.Jail = nil
 	for _, j := range cbsdJailsFromDb {
 		if j.GetName() == jname {
 			jail = j
@@ -614,7 +616,7 @@ func SendTerminalCommand(cmd string) {
 
 func GetJailsListHeader() []gowid.IWidget {
 	header := make([]gowid.IWidget, 0)
-	for _, h := range (&Jail{}).GetHeaderTitles() {
+	for _, h := range jail.GetHeaderTitles() {
 		htext := text.New(h, HALIGN_MIDDLE)
 		header = append(header, GetStyledWidget(htext, "white"))
 	}
@@ -653,7 +655,7 @@ func JailListButtonCallBack(jname string, key gowid.IKey) {
 		LoginToJail(jname)
 	case tcell.KeyF2:
 		curjail := GetJailByName(jname)
-		curjail.OpenActionDialog(viewHolder, app)
+		curjail.OpenActionDialog()
 	case tcell.KeyCtrlR:
 		RefreshJailList()
 	case tcell.KeyTab:
@@ -663,7 +665,7 @@ func JailListButtonCallBack(jname string, key gowid.IKey) {
 	}
 }
 
-func MakeGridLine(jail *Jail) []gowid.IWidget {
+func MakeGridLine(jail *jail.Jail) []gowid.IWidget {
 	style := "gray"
 	line := make([]gowid.IWidget, 0)
 	style = GetJailStyle(jail.GetStatus(), jail.GetAstart())
@@ -765,7 +767,7 @@ func (h handler) UnhandledInput(app gowid.IApp, ev interface{}) bool {
 		if curjail == nil {
 			return handled
 		}
-		curjail.ExecuteActionOnKey(int16(ekey), viewHolder, app.(*gowid.App))
+		curjail.ExecuteActionOnKey(int16(ekey))
 	}
 	return handled
 }
@@ -792,8 +794,8 @@ func GetStyledWidget(w gowid.IWidget, color string) *styled.Widget {
 
 func MakeBottomMenu() {
 	cbsdBottomMenu = make([]gowid.IContainerWidget, 0)
-	for i, m := range (&Jail{}).GetBottomMenuText2() {
-		mtext1 := text.New((&Jail{}).GetBottomMenuText1()[i], HALIGN_LEFT)
+	for i, m := range jail.GetBottomMenuText2() {
+		mtext1 := text.New(jail.GetBottomMenuText1()[i], HALIGN_LEFT)
 		mtext1st := styled.New(mtext1, gowid.MakePaletteRef("blackgreen"))
 		mtext2 := text.New(m+" ", HALIGN_LEFT)
 		mtext2st := styled.New(mtext2, gowid.MakePaletteRef("graydgreen"))
@@ -841,7 +843,7 @@ func main() {
 		"magenta":       gowid.MakePaletteEntry(gowid.ColorMagenta, gowid.ColorNone),
 	}
 
-	cbsdJailsFromDb, err = GetJailsFromDb(GetCbsdDbConnString(false))
+	cbsdJailsFromDb, err = jail.GetJailsFromDb(GetCbsdDbConnString(false))
 	if err != nil {
 		panic(err)
 	}
@@ -915,6 +917,11 @@ func main() {
 	main_tui := tui.NewTui(app, viewHolder, cbsdJailConsole)
 	for _, jail := range cbsdJailsFromDb {
 		jail.SetTui(main_tui)
+	}
+
+	for _, jail := range cbsdJailsFromDb {
+		jail.GetSignalRefresh().Connect(nil, func(a any) { RefreshJailList() })
+		jail.GetSignalUpdated().Connect(nil, func(jname string) { UpdateJailLine(GetJailByName(jname)) })
 	}
 
 	ExitOnErr(err)

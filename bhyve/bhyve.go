@@ -14,6 +14,7 @@ import (
 	"github.com/gcla/gowid/widgets/edit"
 	"github.com/gdamore/tcell"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/quasilyte/gsignal"
 
 	"host"
 	"tui"
@@ -28,6 +29,8 @@ type BhyveVm struct {
 	VncConsole string
 	params     map[string]string
 	jtui       *tui.Tui
+	evtUpdated gsignal.Event[string]
+	evtRefresh gsignal.Event[any]
 }
 
 const (
@@ -70,27 +73,35 @@ var commandJailDestroy string = "bdestroy"
 var argJailName = "jname"
 var argSnapName = "snapname"
 
+func (jail *BhyveVm) GetSignalUpdated() *gsignal.Event[string] {
+	return &jail.evtUpdated
+}
+
+func (jail *BhyveVm) GetSignalRefresh() *gsignal.Event[any] {
+	return &jail.evtRefresh
+}
+
 func (jail *BhyveVm) SetTui(t *tui.Tui) {
 	jail.jtui = t
 }
 
-func (jail *BhyveVm) GetCommandHelp() string {
+func GetCommandHelp() string {
 	return HELP
 }
 
-func (jail *BhyveVm) GetCommandExit() string {
+func GetCommandExit() string {
 	return EXIT
 }
 
-func (jail *BhyveVm) GetBottomMenuText1() []string {
+func GetBottomMenuText1() []string {
 	return strBottomMenuText1
 }
 
-func (jail *BhyveVm) GetBottomMenuText2() []string {
+func GetBottomMenuText2() []string {
 	return strBottomMenuText2
 }
 
-func (jail *BhyveVm) GetHeaderTitles() []string {
+func GetHeaderTitles() []string {
 	return strHeaderTitles
 }
 
@@ -449,7 +460,8 @@ func (jail *BhyveVm) Destroy() {
 		command = host.CBSD_PROGRAM
 	}
 	jail.jtui.ExecCommand(txtheader, command, args)
-	RefreshJailList()
+	jail.evtRefresh.Emit(nil)
+	//RefreshJailList()
 }
 
 func (jail *BhyveVm) OpenDestroyDialog() {
@@ -477,7 +489,7 @@ func (jail *BhyveVm) Snapshot(snapname string) {
 	}
 	args = append(args, commandJailSnap)
 	args = append(args, "mode=create")
-	args = append(args, fmt.Sprintf("snapname=%s", snapname))
+	args = append(args, fmt.Sprintf("%s=%s", argSnapName, snapname))
 	args = append(args, fmt.Sprintf("%s=%s", argJailName, jail.Bname))
 	if host.USE_DOAS {
 		command = host.DOAS_PROGRAM
@@ -525,7 +537,8 @@ func (jail *BhyveVm) Clone(jnewjname string, jnewhname string, newip string) {
 		command = host.CBSD_PROGRAM
 	}
 	jail.jtui.ExecCommand(txtheader, command, args)
-	RefreshJailList()
+	jail.evtRefresh.Emit(nil)
+	//RefreshJailList()
 }
 
 func (jail *BhyveVm) OpenCloneDialog() {
@@ -534,7 +547,7 @@ func (jail *BhyveVm) OpenCloneDialog() {
 		jail.Bname,
 		"Clone VM "+jail.Bname,
 		nil, nil, nil,
-		[]string{"New jail name: ", "New host name: ", "New IP address: "},
+		[]string{"New VM name: ", "New host name: ", "New IP address: "},
 		[]string{jail.Bname + "clone", jail.Bname, "DHCP"},
 		func(jname string, boolparams []bool, strparams []string) {
 			cbsdCloneJailDialog.Close(jail.jtui.App)
@@ -564,7 +577,8 @@ func (jail *BhyveVm) Edit(astart bool, version string, ip string) {
 	if err != nil {
 		panic(err)
 	}
-	UpdateJailLine(jail)
+	jail.evtUpdated.Emit(jail.Bname)
+	//UpdateJailLine(jail)
 }
 
 func (jail *BhyveVm) OpenEditDialog() {
@@ -654,7 +668,9 @@ func (jail *BhyveVm) StartStop() {
 		args = append(args, script)
 		jail.jtui.ExecShellCommand(txtheader, command, args, host.LOGFILE_JSTART)
 	}
-	UpdateJailStatus(jail)
+	_, _ = jail.UpdateJailFromDb(host.GetCbsdDbConnString(false))
+	jail.evtUpdated.Emit(jail.Bname)
+	//UpdateJailLine(jail)
 }
 
 func (jail *BhyveVm) GetStartCommand() string {
@@ -843,7 +859,7 @@ func (jail *BhyveVm) OpenSnapActionsDialog() {
 func (jail *BhyveVm) DestroySnapshot(snapname string) {
 	// cbsd jsnapshot mode=destroy jname=nim1 snapname=20220319193339
 	var command string
-	txtheader := "Destroy jail snapshot...\n"
+	txtheader := "Destroy VM snapshot...\n"
 	args := make([]string, 0)
 	if host.USE_DOAS {
 		args = append(args, host.CBSD_PROGRAM)

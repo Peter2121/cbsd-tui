@@ -12,6 +12,7 @@ require (
 	github.com/gdamore/tcell/v2 v2.5.0
 	github.com/mattn/go-sqlite3 v1.14.12
 	github.com/sirupsen/logrus v1.4.2
+	github.com/quasilyte/gsignal v0.0.0-20231010082051-3c00e9ebb4e5
 	tui v0.0.1
 	host v0.0.1
 )
