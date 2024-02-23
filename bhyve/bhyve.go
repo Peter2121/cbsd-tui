@@ -73,6 +73,10 @@ var commandJailDestroy string = "bdestroy"
 var argJailName = "jname"
 var argSnapName = "snapname"
 
+func (jail *BhyveVm) GetType() string {
+	return "bhyvevm"
+}
+
 func (jail *BhyveVm) GetSignalUpdated() *gsignal.Event[string] {
 	return &jail.evtUpdated
 }
@@ -85,23 +89,23 @@ func (jail *BhyveVm) SetTui(t *tui.Tui) {
 	jail.jtui = t
 }
 
-func GetCommandHelp() string {
+func (jail *BhyveVm) GetCommandHelp() string {
 	return HELP
 }
 
-func GetCommandExit() string {
+func (jail *BhyveVm) GetCommandExit() string {
 	return EXIT
 }
 
-func GetBottomMenuText1() []string {
+func (jail *BhyveVm) GetBottomMenuText1() []string {
 	return strBottomMenuText1
 }
 
-func GetBottomMenuText2() []string {
+func (jail *BhyveVm) GetBottomMenuText2() []string {
 	return strBottomMenuText2
 }
 
-func GetHeaderTitles() []string {
+func (jail *BhyveVm) GetHeaderTitles() []string {
 	return strHeaderTitles
 }
 
@@ -216,8 +220,8 @@ func (jail *BhyveVm) SetParam(pn string, pv string) bool {
 	return false
 }
 
-func New() *BhyveVm {
-	res := &BhyveVm{
+func New() BhyveVm {
+	res := BhyveVm{
 		Bname:      "",
 		Ip4_addr:   "",
 		Status:     0,
@@ -230,8 +234,8 @@ func New() *BhyveVm {
 	return res
 }
 
-func NewBhyveVm(jname string, ip4_addr string, status int, astart int, os_type string, vnc_console string) *BhyveVm {
-	res := &BhyveVm{
+func NewBhyveVm(jname string, ip4_addr string, status int, astart int, os_type string, vnc_console string) BhyveVm {
+	res := BhyveVm{
 		Bname:      jname,
 		Ip4_addr:   ip4_addr,
 		Status:     status,
@@ -244,7 +248,7 @@ func NewBhyveVm(jname string, ip4_addr string, status int, astart int, os_type s
 	return res
 }
 
-func GetJailsFromDb(dbname string) ([]*BhyveVm, error) {
+func GetBhyveVmsFromDb(dbname string) ([]*BhyveVm, error) {
 	jails := make([]*BhyveVm, 0)
 	var vnc_port int = 0
 	var vnc_ip_addr string = ""
@@ -269,7 +273,7 @@ func GetJailsFromDb(dbname string) ([]*BhyveVm, error) {
 			return jails, err
 		}
 		jail.VncConsole = fmt.Sprintf("%s:%d", vnc_ip_addr, vnc_port)
-		jails = append(jails, jail)
+		jails = append(jails, &jail)
 	}
 	rows.Close()
 

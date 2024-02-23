@@ -72,6 +72,10 @@ var commandJailDestroy string = "jdestroy"
 var argJailName = "jname"
 var argSnapName = "snapname"
 
+func (jail *Jail) GetType() string {
+	return "jail"
+}
+
 func (jail *Jail) GetSignalUpdated() *gsignal.Event[string] {
 	return &jail.evtUpdated
 }
@@ -84,23 +88,23 @@ func (jail *Jail) SetTui(t *tui.Tui) {
 	jail.jtui = t
 }
 
-func GetCommandHelp() string {
+func (jail *Jail) GetCommandHelp() string {
 	return HELP
 }
 
-func GetCommandExit() string {
+func (jail *Jail) GetCommandExit() string {
 	return EXIT
 }
 
-func GetBottomMenuText1() []string {
+func (jail *Jail) GetBottomMenuText1() []string {
 	return strBottomMenuText1
 }
 
-func GetBottomMenuText2() []string {
+func (jail *Jail) GetBottomMenuText2() []string {
 	return strBottomMenuText2
 }
 
-func GetHeaderTitles() []string {
+func (jail *Jail) GetHeaderTitles() []string {
 	return strHeaderTitles
 }
 
@@ -216,8 +220,8 @@ func (jail *Jail) SetParam(pn string, pv string) bool {
 	return false
 }
 
-func New() *Jail {
-	res := &Jail{
+func New() Jail {
+	res := Jail{
 		Jname:    "",
 		Ip4_addr: "",
 		Status:   0,
@@ -228,8 +232,8 @@ func New() *Jail {
 	return res
 }
 
-func NewJail(jname string, ip4_addr string, status int, astart int, ver string) *Jail {
-	res := &Jail{
+func NewJail(jname string, ip4_addr string, status int, astart int, ver string) Jail {
+	res := Jail{
 		Jname:    jname,
 		Ip4_addr: ip4_addr,
 		Status:   status,
@@ -261,7 +265,7 @@ func GetJailsFromDb(dbname string) ([]*Jail, error) {
 		if err != nil {
 			return jails, err
 		}
-		jails = append(jails, jail)
+		jails = append(jails, &jail)
 	}
 	rows.Close()
 

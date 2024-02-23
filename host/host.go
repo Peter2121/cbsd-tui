@@ -12,6 +12,7 @@ const DOAS_PROGRAM string = "/usr/local/bin/doas"
 const CBSD_PROGRAM string = "/usr/local/bin/cbsd"
 const SHELL_PROGRAM string = "/bin/sh"
 const STDBUF_PROGRAM string = "/usr/bin/stdbuf"
+const PW_PROGRAM string = "/usr/sbin/pw"
 const LOGFILE_JSTART string = "/var/log/jstart.log"
 
 const CBSD_USER_NAME string = "cbsd"

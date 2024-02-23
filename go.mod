@@ -18,6 +18,7 @@ require (
 	bhyve v0.0.1
 	github.com/gcla/gowid v1.4.1-0.20221101015339-ce29e21d2804
 	github.com/gdamore/tcell/v2 v2.5.0
+	github.com/quasilyte/gsignal v0.0.0-20231010082051-3c00e9ebb4e5
 	github.com/sirupsen/logrus v1.4.2
 	host v0.0.1
 	jail v0.0.1
@@ -35,7 +36,6 @@ require (
 	github.com/mattn/go-runewidth v0.0.13 // indirect
 	github.com/mattn/go-sqlite3 v1.14.12 // indirect
 	github.com/pkg/errors v0.8.1 // indirect
-	github.com/quasilyte/gsignal v0.0.0-20231010082051-3c00e9ebb4e5 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	golang.org/x/sys v0.0.0-20220318055525-2edf467146b5 // indirect
 	golang.org/x/term v0.0.0-20201210144234-2321bbc49cbf // indirect

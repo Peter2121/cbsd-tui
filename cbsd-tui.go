@@ -1,12 +1,8 @@
 package main
 
 import (
-	"bufio"
-	"bytes"
 	"fmt"
 	"os"
-	"os/exec"
-	"os/user"
 	"strings"
 	"time"
 
@@ -16,9 +12,7 @@ import (
 	"github.com/gcla/gowid/widgets/cellmod"
 	"github.com/gcla/gowid/widgets/columns"
 	"github.com/gcla/gowid/widgets/dialog"
-	"github.com/gcla/gowid/widgets/divider"
 	"github.com/gcla/gowid/widgets/fill"
-	"github.com/gcla/gowid/widgets/framed"
 	"github.com/gcla/gowid/widgets/grid"
 	"github.com/gcla/gowid/widgets/holder"
 	"github.com/gcla/gowid/widgets/hpadding"
@@ -31,10 +25,7 @@ import (
 	"github.com/gcla/gowid/widgets/text"
 	"github.com/gcla/gowid/widgets/vpadding"
 
-	//"github.com/quasilyte/gsignal"
-
 	"bhyve"
-	//"editwithscrollbar"
 	"host"
 	"jail"
 	"tui"
@@ -58,17 +49,6 @@ var txtHelp = `- To navigate in jails list use 'Up' and 'Down' keys or mouse
 - To switch to jails list from terminal use 'Ctrl-Z'+'Tab' keys sequence
 - Use bottom menu ('Fx' keys or mouse clicks) to start actions on the selected jail`
 
-var doasProgram = "/usr/local/bin/doas"
-
-var cbsdProgram = "/usr/local/bin/cbsd"
-var cbsdUserName = "cbsd"
-
-var pwProgram = "/usr/sbin/pw"
-
-var cbsdUser *user.User = nil
-
-// var cbsdDatabaseName = "file:/usr/local/jails/cbsd/var/db/local.sqlite?mode=ro"
-var cbsdDatabaseName = "/var/db/local.sqlite"
 var logFileName = "/var/log/cbsd-tui.log"
 
 var cbsdListHeader []gowid.IWidget
@@ -83,9 +63,11 @@ var WIDTH = 18
 var HPAD = 2
 var VPAD = 1
 
+var Containers []Container
+
 // Temporary declaration - will be replaced with interface
-var cbsdJailsFromDb []*jail.Jail
-var cbsdVMsFromDb []*bhyve.BhyveVm
+//var cbsdJailsFromDb []*jail.Jail
+//var cbsdVMsFromDb []*bhyve.BhyveVm
 
 var shellProgram = "/bin/sh"
 var stdbufProgram = "/usr/bin/stdbuf"
@@ -103,21 +85,6 @@ type handler struct{}
 var HALIGN_MIDDLE text.Options = text.Options{Align: gowid.HAlignMiddle{}}
 var HALIGN_LEFT text.Options = text.Options{Align: gowid.HAlignLeft{}}
 
-func GetCbsdDbConnString(readwrite bool) string {
-	var err error
-	if cbsdUser == nil {
-		cbsdUser, err = user.Lookup(cbsdUserName)
-		if err != nil {
-			panic(err)
-		}
-	}
-	if readwrite {
-		return "file:" + cbsdUser.HomeDir + cbsdDatabaseName + "?mode=rw"
-	} else {
-		return "file:" + cbsdUser.HomeDir + cbsdDatabaseName + "?mode=ro"
-	}
-}
-
 func OpenHelpDialog() {
 	var HelpDialog *dialog.Widget
 	HelpDialog = tui.MakeDialogForJail(
@@ -130,203 +97,16 @@ func OpenHelpDialog() {
 	HelpDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
 }
 
-/*
-func CreateActionsLogDialog(editWidget *edit.Widget) *dialog.Widget {
-	baheight := cbsdJailConsole.Height()
-	ba := boxadapter.New(
-		styled.New(
-			editwithscrollbar.NewEditWithScrollbar(editWidget),
-			gowid.MakePaletteRef("white"),
-		),
-		baheight,
-	)
-	actionlogdialog := dialog.New(
-		framed.NewUnicode(ba),
-		dialog.Options{
-			Buttons:         []dialog.Button{dialog.CloseD},
-			Modal:           true,
-			NoShadow:        true,
-			TabToButtons:    true,
-			BackgroundStyle: gowid.MakePaletteRef("bluebg"),
-			BorderStyle:     gowid.MakePaletteRef("dialog"),
-			ButtonStyle:     gowid.MakePaletteRef("white-focus"),
-			FocusOnWidget:   true,
-		},
-	)
-	return actionlogdialog
-}
-*/
-
-func MakeActionDialogForJail(jname string, title string, actions []string, actionfunc []func(jname string)) *dialog.Widget {
-	MakeWidgetChangedFunction := func(actionfunc []func(jname string), ind int, jname string) gowid.WidgetChangedFunction {
-		return func(app gowid.IApp, w gowid.IWidget) { actionfunc[ind](jname) }
-	}
-	var containers []gowid.IContainerWidget
-	var lines *pile.Widget
-	var cb *gowid.WidgetCallback
-	menu := make([]gowid.IWidget, 0)
-
-	var nact int = 0
-	if actions != nil {
-		nact = len(actions)
-	}
-	for i := 0; i < nact; i++ {
-		//	for _, m := range (&Jail{}).GetActionsMenuItems() {
-		mtext := text.New(actions[i], HALIGN_LEFT)
-		mtexts := GetStyledWidget(mtext, "white")
-		mbtn := button.New(mtexts, button.Options{Decoration: button.BareDecoration})
-		cb = &gowid.WidgetCallback{
-			Name:                  "cb_" + mtext.Content().String(),
-			WidgetChangedFunction: MakeWidgetChangedFunction(actionfunc, i, jname),
-		}
-		mbtn.OnClick(cb)
-		menu = append(menu, mbtn)
-	}
-
-	actionlist := list.NewSimpleListWalker(menu)
-	actionlistst := styled.New(list.New(actionlist), gowid.MakePaletteRef("green"))
-	htxt := text.New(title, HALIGN_MIDDLE)
-	htxtst := styled.New(htxt, gowid.MakePaletteRef("magenta"))
-	containers = append(containers, &gowid.ContainerWidget{IWidget: htxtst, D: gowid.RenderFlow{}})
-	containers = append(containers, &gowid.ContainerWidget{IWidget: divider.NewUnicode(), D: gowid.RenderFlow{}})
-	containers = append(containers, &gowid.ContainerWidget{IWidget: actionlistst, D: gowid.RenderFlow{}})
-	lines = pile.New(containers)
-	retdialog := dialog.New(
-		framed.NewSpace(
-			lines,
-		),
-		dialog.Options{
-			Buttons:         []dialog.Button{dialog.CloseD},
-			Modal:           true,
-			NoShadow:        true,
-			TabToButtons:    true,
-			BackgroundStyle: gowid.MakePaletteRef("bluebg"),
-			BorderStyle:     gowid.MakePaletteRef("dialog"),
-			ButtonStyle:     gowid.MakePaletteRef("white-focus"),
-			FocusOnWidget:   true,
-		},
-	)
-	return retdialog
-}
-
-/*
-func MakeDialogForJail(jname string, title string, txt []string,
-	boolparnames []string, boolpardefaults []bool,
-	strparnames []string, strpardefaults []string,
-	okfunc func(jname string, boolparams []bool, strparams []string)) *dialog.Widget {
-
-	var lines *pile.Widget
-	var containers []gowid.IContainerWidget
-
-	var ntxt int = 0
-	var nboolparams = 0
-	var nstrparams = 0
-
-	if txt != nil {
-		ntxt = len(txt)
-	}
-	if boolparnames != nil {
-		nboolparams = len(boolparnames)
-	}
-	if strparnames != nil {
-		nstrparams = len(strparnames)
-	}
-
-	var widtxt []*text.Widget
-	var widtxtst []*styled.Widget
-
-	var widchecktxt []*text.Widget
-	var widchecktxtst []*styled.Widget
-	var widcheck []*checkbox.Widget
-	var widcheckgrp []*hpadding.Widget
-
-	var wideditparams []*edit.Widget
-	var wideditstparams []*styled.Widget
-
-	var strparams []string
-	var boolparams []bool
-
-	var btncancel dialog.Button
-	var btnok dialog.Button
-	var buttons []dialog.Button
-
-	htxt := text.New(title, HALIGN_MIDDLE)
-	htxtst := styled.New(htxt, gowid.MakePaletteRef("magenta"))
-	containers = append(containers, &gowid.ContainerWidget{IWidget: htxtst, D: gowid.RenderFlow{}})
-	containers = append(containers, &gowid.ContainerWidget{IWidget: divider.NewUnicode(), D: gowid.RenderFlow{}})
-
-	for i := 0; i < ntxt; i++ {
-		widtxt = append(widtxt, text.New(txt[i], HALIGN_LEFT))
-		widtxtst = append(widtxtst, styled.New(widtxt[i], gowid.MakePaletteRef("green")))
-		containers = append(containers, &gowid.ContainerWidget{IWidget: widtxtst[i], D: gowid.RenderFlow{}})
-	}
-
-	for i := 0; i < nboolparams; i++ {
-		widchecktxt = append(widchecktxt, text.New(boolparnames[i], HALIGN_LEFT))
-		widchecktxtst = append(widchecktxtst, styled.New(widchecktxt[i], gowid.MakePaletteRef("green")))
-		widcheck = append(widcheck, checkbox.New(boolpardefaults[i]))
-		widcheckgrp = append(widcheckgrp, hpadding.New(columns.NewFixed(widchecktxtst[i], widcheck[i]), gowid.HAlignLeft{}, gowid.RenderFixed{}))
-		containers = append(containers, &gowid.ContainerWidget{IWidget: widcheckgrp[i], D: gowid.RenderFlow{}})
-	}
-
-	for i := 0; i < nstrparams; i++ {
-		wideditparams = append(wideditparams, edit.New(edit.Options{Caption: strparnames[i], Text: strpardefaults[i]}))
-		wideditstparams = append(wideditstparams, styled.New(wideditparams[i], gowid.MakePaletteRef("green")))
-		containers = append(containers, &gowid.ContainerWidget{IWidget: wideditstparams[i], D: gowid.RenderFlow{}})
-	}
-
-	lines = pile.New(containers)
-
-	btnok = dialog.Button{
-		Msg: "OK",
-		Action: gowid.MakeWidgetCallback("execclonejail", gowid.WidgetChangedFunction(func(app gowid.IApp, w gowid.IWidget) {
-			for i := 0; i < nboolparams; i++ {
-				boolparams = append(boolparams, widcheck[i].IsChecked())
-			}
-			for i := 0; i < nstrparams; i++ {
-				strparams = append(strparams, wideditparams[i].Text())
-			}
-			okfunc(jname, boolparams, strparams)
-		})),
-	}
-
-	if nboolparams < 1 && nstrparams < 1 && okfunc == nil {
-		btncancel = dialog.Button{Msg: "Close"}
-		buttons = append(buttons, btncancel)
-	} else {
-		btncancel = dialog.Button{Msg: "Cancel"}
-		buttons = append(buttons, btnok)
-		buttons = append(buttons, btncancel)
-	}
-
-	retdialog := dialog.New(
-		framed.NewSpace(
-			lines,
-		),
-		dialog.Options{
-			Buttons:         buttons,
-			NoShadow:        true,
-			BackgroundStyle: gowid.MakePaletteRef("bluebg"),
-			BorderStyle:     gowid.MakePaletteRef("dialog"),
-			ButtonStyle:     gowid.MakePaletteRef("white-focus"),
-			Modal:           true,
-			FocusOnWidget:   true,
-		},
-	)
-	return retdialog
-}
-*/
-
 func RunMenuAction(action string) {
 	log.Infof("Menu Action: " + action)
 
 	switch action {
 	// "[F1]Help ",      "[F2]Actions Menu ",    "[F3]View ",     "[F4]Edit ",     "[F5]Clone ",
 	// "[F6]Export ",    "[F7]Create Snapshot ", "[F8]Destroy ",  "[F10]Exit ",    "[F11]List Snapshots ", "[F12]Start/Stop"
-	case jail.GetCommandHelp(): // Help
+	case (&(jail.Jail{})).GetCommandHelp(): // Help
 		OpenHelpDialog()
 		return
-	case jail.GetCommandExit(): // Exit
+	case (&(jail.Jail{})).GetCommandExit(): // Exit
 		app.Quit()
 	}
 
@@ -338,15 +118,15 @@ func RunMenuAction(action string) {
 	curjail.ExecuteActionOnCommand(action)
 }
 
-func GetSelectedJail() *jail.Jail {
+func GetSelectedJail() Container {
 	curpos := GetSelectedPosition()
 	if curpos < 0 {
 		return nil
 	}
-	if len(cbsdJailsFromDb) < curpos {
+	if len(Containers) < curpos {
 		return nil
 	}
-	return cbsdJailsFromDb[curpos]
+	return Containers[curpos]
 }
 
 func GetSelectedPosition() int {
@@ -356,7 +136,8 @@ func GetSelectedPosition() int {
 
 func RefreshJailList() {
 	var err error
-	cbsdJailsFromDb, err = jail.GetJailsFromDb(GetCbsdDbConnString(false))
+	//cbsdJailsFromDb, err = jail.GetJailsFromDb(host.GetCbsdDbConnString(false))
+	Containers, err = GetContainersFromDb("jail", host.GetCbsdDbConnString(false))
 	if err != nil {
 		panic(err)
 	}
@@ -377,14 +158,7 @@ func RefreshJailList() {
 	SetJailListFocus()
 }
 
-/*
-func UpdateJailStatus(jail *Jail) {
-	_, _ = jail.UpdateJailFromDb(GetCbsdDbConnString(false))
-	UpdateJailLine(jail)
-}
-*/
-
-func UpdateJailLine(jail *jail.Jail) {
+func UpdateJailLine(jail Container) {
 	for _, line := range cbsdListLines {
 		btn := line[0].(*keypress.Widget).SubWidget().(*cellmod.Widget).SubWidget().(*button.Widget)
 		txt := btn.SubWidget().(*styled.Widget).SubWidget().(*text.Widget)
@@ -403,7 +177,7 @@ func UpdateJailLine(jail *jail.Jail) {
 	}
 }
 
-func GetMenuButton(jail *jail.Jail) *keypress.Widget {
+func GetMenuButton(jail Container) *keypress.Widget {
 	btxt := text.New(jail.GetName(), HALIGN_MIDDLE)
 	style := GetJailStyle(jail.GetStatus(), jail.GetAstart())
 	txts := GetStyledWidget(btxt, style)
@@ -432,150 +206,11 @@ func GetMenuButton(jail *jail.Jail) *keypress.Widget {
 	return kpbtn
 }
 
-/*
-func ExecCommand(title string, command string, args []string) {
-	var cmd *exec.Cmd
-	logspace := edit.New(edit.Options{ReadOnly: true})
-	outdlg := tui.CreateActionsLogDialog(logspace, cbsdJailConsole.Height())
-		//if cbsdActionsDialog != nil {
-		//	if cbsdActionsDialog.IsOpen() {
-		//		cbsdActionsDialog.Close(app)
-		//	}
-		//}
-	outdlg.Open(viewHolder, gowid.RenderWithRatio{R: 0.7}, app)
-	app.RedrawTerminal()
-	cmd = exec.Command(command, args...)
-	cmd.Env = os.Environ()
-	cmd.Env = append(cmd.Env, "NOCOLOR=1")
-	cmd.Stderr = cmd.Stdout
-	cmdout, err := cmd.StdoutPipe()
-	defer cmdout.Close()
-	if err != nil {
-		log.Errorf("cmdout creation failed with %s\n", err)
-	}
-	scanner := bufio.NewScanner(cmdout)
-	//scanner.Buffer(make([]byte, MAXBUF), MAXBUF)
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		for scanner.Scan() {
-			logText = logspace.Text() + scanner.Text() + "\n"
-			app.RunThenRenderEvent(gowid.RunFunction(func(app gowid.IApp) {
-				logspace.SetText(logText, app)
-				logspace.SetCursorPos(utf8.RuneCountInString(logspace.Text()), app)
-			}))
-			//app.RedrawTerminal()
-		}
-		wg.Done()
-	}()
-	err = cmd.Start()
-	if err != nil {
-		log.Errorf("cmd.Start() failed with %s\n", err)
-	}
-	wg.Wait()
-	err = cmd.Wait()
-	if err != nil {
-		log.Errorf("cmd.Wait() failed with %s\n", err)
-	}
-}
-
-func ExecShellCommand(title string, command string, args []string, logfile string) {
-	var cmd *exec.Cmd
-	var file *os.File
-	var err error
-	MAXBUF := 1000000
-	buf := make([]byte, MAXBUF)
-	log.Infof("Trying to start %s command with %v arguments", command, args)
-	logspace := edit.New(edit.Options{ReadOnly: true})
-	outdlg := tui.CreateActionsLogDialog(logspace, cbsdJailConsole.Height())
-		//if cbsdActionsDialog != nil {
-		//	if cbsdActionsDialog.IsOpen() {
-		//		cbsdActionsDialog.Close(app)
-		//	}
-		//}
-	outdlg.Open(viewHolder, gowid.RenderWithRatio{R: 0.7}, app)
-	app.RedrawTerminal()
-	cmd = exec.Command(command, args...)
-	cmd.Env = os.Environ()
-	cmd.Env = append(cmd.Env, "NOCOLOR=1")
-	file, err = os.OpenFile(logfile, os.O_TRUNC|os.O_RDWR, 0644)
-	if os.IsNotExist(err) {
-		file, err = os.OpenFile(logfile, os.O_CREATE|os.O_RDWR, 0644)
-		if err != nil {
-			log.Fatal(err)
-		}
-	} else {
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
-	file.Close()
-	chanfread := make(chan int)
-
-	go func() {
-		var rbytes int
-		file, err = os.OpenFile(logfile, os.O_RDONLY|os.O_SYNC, 0644)
-		if err != nil {
-			log.Fatal(err)
-		}
-		fsize, err := file.Stat()
-		if err != nil {
-			log.Fatal(err)
-		}
-		oldfsize := fsize.Size()
-		for true {
-			fsize, err = file.Stat()
-			if err != nil {
-				log.Fatal(err)
-			}
-			if fsize.Size() > oldfsize {
-				oldfsize = fsize.Size()
-				if fsize.Size() > int64(MAXBUF) {
-					log.Errorf(command + " produced output is too long, it will be truncated\n")
-					break
-				}
-				rbytes, err = file.Read(buf)
-				if rbytes > 0 {
-					logText = logspace.Text() + string(buf[:rbytes]) + "\n"
-					app.RunThenRenderEvent(gowid.RunFunction(func(app gowid.IApp) {
-						logspace.SetText(logText, app)
-						logspace.SetCursorPos(utf8.RuneCountInString(logspace.Text()), app)
-						app.Sync()
-					}))
-					//app.RedrawTerminal()
-				}
-			}
-			select {
-			case <-chanfread:
-				break
-			default:
-				time.Sleep(300 * time.Millisecond)
-			}
-		}
-		file.Close()
-	}()
-
-	err = cmd.Start()
-	if err != nil {
-		log.Errorf("cmd.Start() failed with %s\n", err)
-	}
-	err = cmd.Wait()
-	if err != nil {
-		log.Errorf("cmd.Wait() failed with %s\n", err)
-	}
-	chanfread <- 1
-}
-*/
-
-func LogError(strerr string, err error) {
-	log.Errorf(strerr+": %w", err)
-}
-
-func GetJailByName(jname string) *jail.Jail {
-	var jail *jail.Jail = nil
-	for _, j := range cbsdJailsFromDb {
+func GetJailByName(jname string) Container {
+	var jail Container = nil
+	for i, j := range Containers {
 		if j.GetName() == jname {
-			jail = j
+			jail = Containers[i]
 			break
 		}
 	}
@@ -595,10 +230,10 @@ func LoginToJail(jname string) {
 			SendTerminalCommand("\x03")
 			SendTerminalCommand("exit")
 		}
-		if doas {
-			SendTerminalCommand(doasProgram + " " + cbsdProgram + " " + jail.GetLoginCommand())
+		if host.USE_DOAS {
+			SendTerminalCommand(host.DOAS_PROGRAM + " " + host.CBSD_PROGRAM + " " + jail.GetLoginCommand())
 		} else {
-			SendTerminalCommand(cbsdProgram + " " + jail.GetLoginCommand())
+			SendTerminalCommand(host.CBSD_PROGRAM + " " + jail.GetLoginCommand())
 		}
 		cbsdJailConsoleActive = jname
 		if cbsdWidgets.Focus() == 0 { // TODO: check current focus more carefully
@@ -616,7 +251,7 @@ func SendTerminalCommand(cmd string) {
 
 func GetJailsListHeader() []gowid.IWidget {
 	header := make([]gowid.IWidget, 0)
-	for _, h := range jail.GetHeaderTitles() {
+	for _, h := range (&(jail.Jail{})).GetHeaderTitles() {
 		htext := text.New(h, HALIGN_MIDDLE)
 		header = append(header, GetStyledWidget(htext, "white"))
 	}
@@ -640,7 +275,7 @@ func GetJailStyle(jailstatus int, jailastart int) string {
 
 func SetJailListFocus() {
 	newpos := list.ListPos(0)
-	for i, jail := range cbsdJailsFromDb {
+	for i, jail := range Containers {
 		if jail.IsRunning() {
 			newpos = list.ListPos(i + 1)
 			break
@@ -665,7 +300,7 @@ func JailListButtonCallBack(jname string, key gowid.IKey) {
 	}
 }
 
-func MakeGridLine(jail *jail.Jail) []gowid.IWidget {
+func MakeGridLine(jail Container) []gowid.IWidget {
 	style := "gray"
 	line := make([]gowid.IWidget, 0)
 	style = GetJailStyle(jail.GetStatus(), jail.GetAstart())
@@ -679,39 +314,11 @@ func MakeGridLine(jail *jail.Jail) []gowid.IWidget {
 
 func MakeJailsLines() [][]gowid.IWidget {
 	lines := make([][]gowid.IWidget, 0)
-	for _, jail := range cbsdJailsFromDb {
-		line := MakeGridLine(jail)
+	for i := range Containers {
+		line := MakeGridLine(Containers[i])
 		lines = append(lines, line)
 	}
 	return lines
-}
-
-func GetNodeName() string {
-	nname := ""
-	cmd := exec.Command(pwProgram, "user", "show", cbsdUserName)
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	err := cmd.Run()
-	if err != nil {
-		log.Fatalf("cmd.Run() failed with %s\n", err)
-	}
-	cbsd_user_conf := string(stdout.Bytes())
-	cbsd_home_dir := strings.Split(cbsd_user_conf, ":")[8]
-	cbsd_nodename_file := cbsd_home_dir + "/nodename"
-	nnfile, err := os.Open(cbsd_nodename_file)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer nnfile.Close()
-	scanner := bufio.NewScanner(nnfile)
-	for scanner.Scan() {
-		nname = scanner.Text()
-	}
-	if err := scanner.Err(); err != nil {
-		log.Fatal(err)
-	}
-	return nname
 }
 
 func RedirectLogger(path string) *os.File {
@@ -794,8 +401,8 @@ func GetStyledWidget(w gowid.IWidget, color string) *styled.Widget {
 
 func MakeBottomMenu() {
 	cbsdBottomMenu = make([]gowid.IContainerWidget, 0)
-	for i, m := range jail.GetBottomMenuText2() {
-		mtext1 := text.New(jail.GetBottomMenuText1()[i], HALIGN_LEFT)
+	for i, m := range (&(jail.Jail{})).GetBottomMenuText2() {
+		mtext1 := text.New((&(jail.Jail{})).GetBottomMenuText1()[i], HALIGN_LEFT)
 		mtext1st := styled.New(mtext1, gowid.MakePaletteRef("blackgreen"))
 		mtext2 := text.New(m+" ", HALIGN_LEFT)
 		mtext2st := styled.New(mtext2, gowid.MakePaletteRef("graydgreen"))
@@ -812,6 +419,34 @@ func MakeBottomMenu() {
 		}})
 		cbsdBottomMenu = append(cbsdBottomMenu, &gowid.ContainerWidget{IWidget: mbtn, D: gowid.RenderFixed{}})
 	}
+}
+
+func GetContainersFromDb(c_type string, db string) ([]Container, error) {
+	switch c_type {
+	case "jail":
+		jails, err := jail.GetJailsFromDb(db)
+		if err != nil {
+			return make([]Container, 0), err
+		}
+		jlen := len(jails)
+		cont := make([]Container, jlen)
+		for i := range jails {
+			cont[i] = jails[i]
+		}
+		return cont, nil
+	case "bhyvevm":
+		vms, err := bhyve.GetBhyveVmsFromDb(db)
+		if err != nil {
+			return make([]Container, 0), err
+		}
+		jlen := len(vms)
+		cont := make([]Container, jlen)
+		for i := range vms {
+			cont[i] = vms[i]
+		}
+		return cont, nil
+	}
+	return make([]Container, 0), nil
 }
 
 func main() {
@@ -843,13 +478,20 @@ func main() {
 		"magenta":       gowid.MakePaletteEntry(gowid.ColorMagenta, gowid.ColorNone),
 	}
 
-	cbsdJailsFromDb, err = jail.GetJailsFromDb(GetCbsdDbConnString(false))
+	Containers, err = GetContainersFromDb("jail", host.GetCbsdDbConnString(false))
 	if err != nil {
 		panic(err)
 	}
 
-	if len(cbsdJailsFromDb) < 1 {
-		log.Errorf("Cannot find jails in database %s", cbsdDatabaseName)
+	/*
+		cbsdJailsFromDb, err = jail.GetJailsFromDb(host.GetCbsdDbConnString(false))
+		if err != nil {
+			panic(err)
+		}
+	*/
+
+	if len(Containers) < 1 {
+		log.Errorf("Cannot find containers in database %s", host.CBSD_DB_NAME)
 		return
 	}
 
@@ -861,7 +503,6 @@ func main() {
 		log.Errorf("Error from host.NeedDoAs(): %v", err)
 	}
 
-	//cbsdJlsHeader = cbsdJailsFromDb[0].GetHeaderTitles()
 	cbsdListLines = MakeJailsLines()
 	cbsdListHeader = GetJailsListHeader()
 
@@ -915,13 +556,13 @@ func main() {
 	})
 
 	main_tui := tui.NewTui(app, viewHolder, cbsdJailConsole)
-	for _, jail := range cbsdJailsFromDb {
-		jail.SetTui(main_tui)
+	for i := range Containers {
+		Containers[i].SetTui(main_tui)
 	}
 
-	for _, jail := range cbsdJailsFromDb {
-		jail.GetSignalRefresh().Connect(nil, func(a any) { RefreshJailList() })
-		jail.GetSignalUpdated().Connect(nil, func(jname string) { UpdateJailLine(GetJailByName(jname)) })
+	for i := range Containers {
+		Containers[i].GetSignalRefresh().Connect(nil, func(a any) { RefreshJailList() })
+		Containers[i].GetSignalUpdated().Connect(nil, func(jname string) { UpdateJailLine(GetJailByName(jname)) })
 	}
 
 	ExitOnErr(err)
