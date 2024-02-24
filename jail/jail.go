@@ -132,6 +132,41 @@ func (jail *Jail) GetStatus() int {
 	return jail.Status
 }
 
+/*
+func GetJailStatus(jname string) string {
+	var stdout, stderr bytes.Buffer
+	//var jid int
+	retstatus := "Unknown"
+	cmd_args := make([]string, 0)
+	cmd_args = append(cmd_args, "jstatus")
+	cmd_args = append(cmd_args, "invert=true")
+	cmd_args = append(cmd_args, "jname="+jname)
+	cmd := exec.Command(cbsdProgram, cmd_args...)
+	cmd.Env = os.Environ()
+	cmd.Env = append(cmd.Env, "NOCOLOR=1")
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	if err != nil {
+		log.Errorf("cmd.Run() failed with %s\n", err)
+	}
+	str_out := string(stdout.Bytes())
+	str_out = strings.TrimSuffix(str_out, "\n")
+	if str_out != "" {
+		jid, err := strconv.Atoi(str_out)
+		if err != nil {
+			log.Errorf("cbsd jstatus incorrect return %s\n", err)
+		}
+		if jid > 0 {
+			retstatus = "On"
+		} else if jid == 0 {
+			retstatus = "Off"
+		}
+	}
+	return retstatus
+}
+*/
+
 func (jail *Jail) GetAddr() string {
 	return jail.Ip4_addr
 }

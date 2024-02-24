@@ -39,7 +39,11 @@ type PairString struct {
 	Value string
 }
 
-var doas = true
+var doas bool = true
+
+var ctype string = "jail"
+
+//var ctype string = "bhyvevm"
 
 var txtProgramName = "CBSD-TUI"
 var txtHelp = `- To navigate in jails list use 'Up' and 'Down' keys or mouse
@@ -100,14 +104,16 @@ func OpenHelpDialog() {
 func RunMenuAction(action string) {
 	log.Infof("Menu Action: " + action)
 
-	switch action {
-	// "[F1]Help ",      "[F2]Actions Menu ",    "[F3]View ",     "[F4]Edit ",     "[F5]Clone ",
-	// "[F6]Export ",    "[F7]Create Snapshot ", "[F8]Destroy ",  "[F10]Exit ",    "[F11]List Snapshots ", "[F12]Start/Stop"
-	case (&(jail.Jail{})).GetCommandHelp(): // Help
-		OpenHelpDialog()
-		return
-	case (&(jail.Jail{})).GetCommandExit(): // Exit
-		app.Quit()
+	if len(Containers) > 0 {
+		switch action {
+		// "[F1]Help ",      "[F2]Actions Menu ",    "[F3]View ",     "[F4]Edit ",     "[F5]Clone ",
+		// "[F6]Export ",    "[F7]Create Snapshot ", "[F8]Destroy ",  "[F10]Exit ",    "[F11]List Snapshots ", "[F12]Start/Stop"
+		case Containers[0].GetCommandHelp(): // Help
+			OpenHelpDialog()
+			return
+		case Containers[0].GetCommandExit(): // Exit
+			app.Quit()
+		}
 	}
 
 	curjail := GetSelectedJail()
@@ -137,7 +143,7 @@ func GetSelectedPosition() int {
 func RefreshJailList() {
 	var err error
 	//cbsdJailsFromDb, err = jail.GetJailsFromDb(host.GetCbsdDbConnString(false))
-	Containers, err = GetContainersFromDb("jail", host.GetCbsdDbConnString(false))
+	Containers, err = GetContainersFromDb(ctype, host.GetCbsdDbConnString(false))
 	if err != nil {
 		panic(err)
 	}
@@ -251,7 +257,11 @@ func SendTerminalCommand(cmd string) {
 
 func GetJailsListHeader() []gowid.IWidget {
 	header := make([]gowid.IWidget, 0)
-	for _, h := range (&(jail.Jail{})).GetHeaderTitles() {
+	titles := make([]string, 0)
+	if len(Containers) > 0 {
+		titles = Containers[0].GetHeaderTitles()
+	}
+	for _, h := range titles {
 		htext := text.New(h, HALIGN_MIDDLE)
 		header = append(header, GetStyledWidget(htext, "white"))
 	}
@@ -401,8 +411,14 @@ func GetStyledWidget(w gowid.IWidget, color string) *styled.Widget {
 
 func MakeBottomMenu() {
 	cbsdBottomMenu = make([]gowid.IContainerWidget, 0)
-	for i, m := range (&(jail.Jail{})).GetBottomMenuText2() {
-		mtext1 := text.New((&(jail.Jail{})).GetBottomMenuText1()[i], HALIGN_LEFT)
+	menu_text := make([]string, 0)
+	menu_text2 := make([]string, 0)
+	if len(Containers) > 0 {
+		menu_text = Containers[0].GetBottomMenuText1()
+		menu_text2 = Containers[0].GetBottomMenuText2()
+	}
+	for i, m := range menu_text2 {
+		mtext1 := text.New(menu_text[i], HALIGN_LEFT)
 		mtext1st := styled.New(mtext1, gowid.MakePaletteRef("blackgreen"))
 		mtext2 := text.New(m+" ", HALIGN_LEFT)
 		mtext2st := styled.New(mtext2, gowid.MakePaletteRef("graydgreen"))
@@ -478,7 +494,7 @@ func main() {
 		"magenta":       gowid.MakePaletteEntry(gowid.ColorMagenta, gowid.ColorNone),
 	}
 
-	Containers, err = GetContainersFromDb("jail", host.GetCbsdDbConnString(false))
+	Containers, err = GetContainersFromDb(ctype, host.GetCbsdDbConnString(false))
 	if err != nil {
 		panic(err)
 	}
