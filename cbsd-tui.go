@@ -41,21 +41,26 @@ type PairString struct {
 
 var doas bool = true
 
-var ctype string = "jail"
+const CTYPE_JAIL string = "jail"
+const CTYPE_BHYVEVM string = "bhyvevm"
+
+var ctype string = CTYPE_JAIL
 
 //var ctype string = "bhyvevm"
 
 var txtProgramName = "CBSD-TUI"
-var txtHelp = `- To navigate in jails list use 'Up' and 'Down' keys or mouse
-- To open 'Actions' menu for the selected jail use 'F2' key
-- To login into the selected jail (as root) use 'Enter' key or mouse double-click on jail name
-- To switch to terminal from jails list use 'Tab' key
-- To switch to jails list from terminal use 'Ctrl-Z'+'Tab' keys sequence
-- Use bottom menu ('Fx' keys or mouse clicks) to start actions on the selected jail`
+var txtHelp = `- To navigate in jails/VMs list use 'Up' and 'Down' keys or mouse
+- To open 'Actions' menu for the selected jail/VM use 'F2' key
+- To switch to jails management use 'Ctrl-J'
+- To switch to Bhyve VMs management use 'Ctrl-B'
+- To login into the selected jail/VM use 'Enter' key or mouse double-click on jail/VM name
+- To switch to terminal from jails/VMs list use 'Tab' key
+- To switch to jails/VMs list from terminal use 'Ctrl-Z'+'Tab' keys sequence
+- Use bottom menu ('Fx' keys or mouse clicks) to start actions on the selected jail/VM`
 
 var logFileName = "/var/log/cbsd-tui.log"
 
-var cbsdListHeader []gowid.IWidget
+// var cbsdListHeader []gowid.IWidget
 var cbsdListLines [][]gowid.IWidget
 var cbsdListGrid []gowid.IWidget
 var cbsdListWalker *list.SimpleListWalker
@@ -68,6 +73,8 @@ var HPAD = 2
 var VPAD = 1
 
 var Containers []Container
+var mainTui *tui.Tui
+var gHeader *grid.Widget
 
 // Temporary declaration - will be replaced with interface
 //var cbsdJailsFromDb []*jail.Jail
@@ -98,7 +105,7 @@ func OpenHelpDialog() {
 		nil, nil, nil, nil,
 		nil,
 	)
-	HelpDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.3}, app)
+	HelpDialog.Open(viewHolder, gowid.RenderWithRatio{R: 0.5}, app)
 }
 
 func RunMenuAction(action string) {
@@ -148,9 +155,10 @@ func RefreshJailList() {
 		panic(err)
 	}
 	cbsdListLines = MakeJailsLines()
+	//cbsdListHeader = GetJailsListHeader()
 	cbsdListGrid = make([]gowid.IWidget, 0)
-	gheader := grid.New(cbsdListHeader, WIDTH, HPAD, VPAD, gowid.HAlignMiddle{})
-	cbsdListGrid = append(cbsdListGrid, gheader)
+	gHeader = grid.New(GetJailsListHeader(), WIDTH, HPAD, VPAD, gowid.HAlignMiddle{})
+	cbsdListGrid = append(cbsdListGrid, gHeader)
 	for _, line := range cbsdListLines {
 		gline := grid.New(line, WIDTH, HPAD, VPAD, gowid.HAlignMiddle{},
 			grid.Options{
@@ -161,6 +169,13 @@ func RefreshJailList() {
 	}
 	cbsdListWalker = list.NewSimpleListWalker(cbsdListGrid)
 	cbsdListJails.SetWalker(cbsdListWalker, app)
+	for i := range Containers {
+		Containers[i].SetTui(mainTui)
+	}
+	for i := range Containers {
+		Containers[i].GetSignalRefresh().Connect(nil, func(a any) { RefreshJailList() })
+		Containers[i].GetSignalUpdated().Connect(nil, func(jname string) { UpdateJailLine(GetJailByName(jname)) })
+	}
 	SetJailListFocus()
 }
 
@@ -203,6 +218,8 @@ func GetMenuButton(jail Container) *keypress.Widget {
 				gowid.MakeKeyExt(tcell.KeyF2),
 				gowid.MakeKeyExt(tcell.KeyTab),
 				gowid.MakeKeyExt(tcell.KeyCtrlR),
+				gowid.MakeKeyExt(tcell.KeyCtrlJ),
+				gowid.MakeKeyExt(tcell.KeyCtrlB),
 			},
 		},
 	)
@@ -303,6 +320,16 @@ func JailListButtonCallBack(jname string, key gowid.IKey) {
 		curjail.OpenActionDialog()
 	case tcell.KeyCtrlR:
 		RefreshJailList()
+	case tcell.KeyCtrlJ:
+		if ctype != CTYPE_JAIL {
+			ctype = CTYPE_JAIL
+			RefreshJailList()
+		}
+	case tcell.KeyCtrlB:
+		if ctype != CTYPE_BHYVEVM {
+			ctype = CTYPE_BHYVEVM
+			RefreshJailList()
+		}
 	case tcell.KeyTab:
 		if next, ok := cbsdWidgets.FindNextSelectable(gowid.Forwards, true); ok {
 			cbsdWidgets.SetFocus(app, next)
@@ -494,23 +521,6 @@ func main() {
 		"magenta":       gowid.MakePaletteEntry(gowid.ColorMagenta, gowid.ColorNone),
 	}
 
-	Containers, err = GetContainersFromDb(ctype, host.GetCbsdDbConnString(false))
-	if err != nil {
-		panic(err)
-	}
-
-	/*
-		cbsdJailsFromDb, err = jail.GetJailsFromDb(host.GetCbsdDbConnString(false))
-		if err != nil {
-			panic(err)
-		}
-	*/
-
-	if len(Containers) < 1 {
-		log.Errorf("Cannot find containers in database %s", host.CBSD_DB_NAME)
-		return
-	}
-
 	f := RedirectLogger(logFileName)
 	defer f.Close()
 
@@ -519,12 +529,22 @@ func main() {
 		log.Errorf("Error from host.NeedDoAs(): %v", err)
 	}
 
+	Containers, err = GetContainersFromDb(ctype, host.GetCbsdDbConnString(false))
+	if err != nil {
+		panic(err)
+	}
+
+	if len(Containers) < 1 {
+		log.Errorf("Cannot find containers in database %s", host.CBSD_DB_NAME)
+		return
+	}
+
 	cbsdListLines = MakeJailsLines()
-	cbsdListHeader = GetJailsListHeader()
+	//cbsdListHeader = GetJailsListHeader()
 
 	cbsdListGrid = make([]gowid.IWidget, 0)
-	gheader := grid.New(cbsdListHeader, WIDTH, HPAD, VPAD, gowid.HAlignMiddle{})
-	cbsdListGrid = append(cbsdListGrid, gheader)
+	gHeader = grid.New(GetJailsListHeader(), WIDTH, HPAD, VPAD, gowid.HAlignMiddle{})
+	cbsdListGrid = append(cbsdListGrid, gHeader)
 	for _, line := range cbsdListLines {
 		gline := grid.New(line, WIDTH, HPAD, VPAD, gowid.HAlignMiddle{},
 			grid.Options{
@@ -571,11 +591,10 @@ func main() {
 		Log:     log.StandardLogger(),
 	})
 
-	main_tui := tui.NewTui(app, viewHolder, cbsdJailConsole)
+	mainTui = tui.NewTui(app, viewHolder, cbsdJailConsole)
 	for i := range Containers {
-		Containers[i].SetTui(main_tui)
+		Containers[i].SetTui(mainTui)
 	}
-
 	for i := range Containers {
 		Containers[i].GetSignalRefresh().Connect(nil, func(a any) { RefreshJailList() })
 		Containers[i].GetSignalUpdated().Connect(nil, func(jname string) { UpdateJailLine(GetJailByName(jname)) })

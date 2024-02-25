@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 
 	"github.com/gcla/gowid"
@@ -14,6 +15,8 @@ import (
 	"github.com/gcla/gowid/widgets/edit"
 	"github.com/gdamore/tcell"
 	_ "github.com/mattn/go-sqlite3"
+
+	//"github.com/prometheus/common/log"
 	"github.com/quasilyte/gsignal"
 
 	"host"
@@ -69,6 +72,7 @@ var commandJailSnap string = "jsnapshot"
 var commandJailClone string = "jclone"
 var commandJailExport string = "jexport"
 var commandJailDestroy string = "jdestroy"
+var commandJailStatus string = "jstatus"
 var argJailName = "jname"
 var argSnapName = "snapname"
 
@@ -132,40 +136,48 @@ func (jail *Jail) GetStatus() int {
 	return jail.Status
 }
 
-/*
-func GetJailStatus(jname string) string {
+func (jail *Jail) GetCurrentStatus() int {
 	var stdout, stderr bytes.Buffer
-	//var jid int
-	retstatus := "Unknown"
-	cmd_args := make([]string, 0)
-	cmd_args = append(cmd_args, "jstatus")
-	cmd_args = append(cmd_args, "invert=true")
-	cmd_args = append(cmd_args, "jname="+jname)
-	cmd := exec.Command(cbsdProgram, cmd_args...)
+	retstatus := -1
+	var command string = ""
+	args := make([]string, 0)
+	if host.USE_DOAS {
+		args = append(args, host.CBSD_PROGRAM)
+	}
+	args = append(args, commandJailStatus)
+	args = append(args, "invert=true")
+	args = append(args, fmt.Sprintf("%s=%s", argJailName, jail.Jname))
+	if host.USE_DOAS {
+		command = host.DOAS_PROGRAM
+	} else {
+		command = host.CBSD_PROGRAM
+	}
+	cmd := exec.Command(command, args...)
 	cmd.Env = os.Environ()
 	cmd.Env = append(cmd.Env, "NOCOLOR=1")
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	err := cmd.Run()
 	if err != nil {
-		log.Errorf("cmd.Run() failed with %s\n", err)
+		//log.Errorf("cmd.Run() failed with %s\n", err)
+		return retstatus
 	}
 	str_out := string(stdout.Bytes())
 	str_out = strings.TrimSuffix(str_out, "\n")
 	if str_out != "" {
 		jid, err := strconv.Atoi(str_out)
 		if err != nil {
-			log.Errorf("cbsd jstatus incorrect return %s\n", err)
+			//log.Errorf("cbsd jstatus incorrect return %s\n", err)
+			return retstatus
 		}
 		if jid > 0 {
-			retstatus = "On"
+			retstatus = 1
 		} else if jid == 0 {
-			retstatus = "Off"
+			retstatus = 0
 		}
 	}
 	return retstatus
 }
-*/
 
 func (jail *Jail) GetAddr() string {
 	return jail.Ip4_addr
@@ -300,6 +312,12 @@ func GetJailsFromDb(dbname string) ([]*Jail, error) {
 		if err != nil {
 			return jails, err
 		}
+		if (jail.Status == 0) || (jail.Status == 1) {
+			cur_status := jail.GetCurrentStatus()
+			if cur_status >= 0 {
+				jail.Status = cur_status
+			}
+		}
 		jails = append(jails, &jail)
 	}
 	rows.Close()
@@ -344,7 +362,12 @@ func (jail *Jail) GetJailFromDb(dbname string, jname string) (bool, error) {
 		}
 		return false, err
 	}
-
+	if (jail.Status == 0) || (jail.Status == 1) {
+		cur_status := jail.GetCurrentStatus()
+		if cur_status >= 0 {
+			jail.Status = cur_status
+		}
+	}
 	return true, nil
 }
 
@@ -409,6 +432,7 @@ func (jail *Jail) GetJailFromDbFull(dbname string, jname string) (bool, error) {
 
 func (jail *Jail) GetJailViewString() string {
 	var strview string
+	_, _ = jail.GetJailFromDbFull(host.GetCbsdDbConnString(false), jail.Jname)
 	strview += "Name: " + jail.Jname + "\n"
 	strview += "IP address: " + jail.Ip4_addr + "\n"
 	strview += "Status: " + jail.GetStatusString() + "\n"
@@ -435,7 +459,12 @@ func (jail *Jail) UpdateJailFromDb(dbname string) (bool, error) {
 		}
 		return false, err
 	}
-
+	if (jail.Status == 0) || (jail.Status == 1) {
+		cur_status := jail.GetCurrentStatus()
+		if cur_status >= 0 {
+			jail.Status = cur_status
+		}
+	}
 	return true, nil
 }
 

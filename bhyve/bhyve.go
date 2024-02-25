@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 
 	"github.com/gcla/gowid"
@@ -70,6 +71,7 @@ var commandJailSnap string = "jsnapshot"
 var commandJailClone string = "bclone"
 var commandJailExport string = "bexport"
 var commandJailDestroy string = "bdestroy"
+var commandJailStatus string = "jstatus"
 var argJailName = "jname"
 var argSnapName = "snapname"
 
@@ -133,6 +135,49 @@ func (jail *BhyveVm) GetStatus() int {
 	return jail.Status
 }
 
+func (jail *BhyveVm) GetCurrentStatus() int {
+	var stdout, stderr bytes.Buffer
+	retstatus := -1
+	var command string = ""
+	args := make([]string, 0)
+	if host.USE_DOAS {
+		args = append(args, host.CBSD_PROGRAM)
+	}
+	args = append(args, commandJailStatus)
+	args = append(args, "invert=true")
+	args = append(args, fmt.Sprintf("%s=%s", argJailName, jail.Bname))
+	if host.USE_DOAS {
+		command = host.DOAS_PROGRAM
+	} else {
+		command = host.CBSD_PROGRAM
+	}
+	cmd := exec.Command(command, args...)
+	cmd.Env = os.Environ()
+	cmd.Env = append(cmd.Env, "NOCOLOR=1")
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	if err != nil {
+		//log.Errorf("cmd.Run() failed with %s\n", err)
+		return retstatus
+	}
+	str_out := string(stdout.Bytes())
+	str_out = strings.TrimSuffix(str_out, "\n")
+	if str_out != "" {
+		jid, err := strconv.Atoi(str_out)
+		if err != nil {
+			//log.Errorf("cbsd jstatus incorrect return %s\n", err)
+			return retstatus
+		}
+		if jid > 0 {
+			retstatus = 1
+		} else if jid == 0 {
+			retstatus = 0
+		}
+	}
+	return retstatus
+}
+
 func (jail *BhyveVm) GetAddr() string {
 	return jail.Ip4_addr
 }
@@ -149,12 +194,22 @@ func (jail *BhyveVm) SetAstart(as int) {
 	jail.Astart = as
 }
 
+func (jail *BhyveVm) GetVncConsoleAddress() string {
+	return jail.VncConsole
+}
+
+func (jail *BhyveVm) SetVncConsoleAddress(va string) {
+	jail.VncConsole = va
+}
+
+/*
 func (jail *BhyveVm) GetVer() string {
 	return "N/A"
 }
 
 func (jail *BhyveVm) SetVer(ver string) {
 }
+*/
 
 func (jail *BhyveVm) IsRunning() bool {
 	if jail.Status == 1 {
@@ -273,6 +328,12 @@ func GetBhyveVmsFromDb(dbname string) ([]*BhyveVm, error) {
 			return jails, err
 		}
 		jail.VncConsole = fmt.Sprintf("%s:%d", vnc_ip_addr, vnc_port)
+		if (jail.Status == 0) || (jail.Status == 1) {
+			cur_status := jail.GetCurrentStatus()
+			if cur_status >= 0 {
+				jail.Status = cur_status
+			}
+		}
 		jails = append(jails, &jail)
 	}
 	rows.Close()
@@ -327,71 +388,70 @@ func (jail *BhyveVm) GetJailFromDb(dbname string, jname string) (bool, error) {
 	}
 
 	jail.VncConsole = fmt.Sprintf("%s:%d", vnc_ip_addr, vnc_port)
+	if (jail.Status == 0) || (jail.Status == 1) {
+		cur_status := jail.GetCurrentStatus()
+		if cur_status >= 0 {
+			jail.Status = cur_status
+		}
+	}
 	return true, nil
 }
 
 func (jail *BhyveVm) GetJailFromDbFull(dbname string, jname string) (bool, error) {
-	return false, nil
-	/*
-		if jail.Jname != jname {
-			result, err := jail.GetJailFromDb(dbname, jname)
-			if err != nil {
-				return false, err
-			}
-			if !result {
-				return result, nil
-			}
-		}
-		result := false
-		db, err := sql.Open("sqlite3", dbname)
+
+	if jail.Bname != jname {
+		result, err := jail.GetJailFromDb(dbname, jname)
 		if err != nil {
 			return false, err
 		}
-		defer db.Close()
+		if !result {
+			return result, nil
+		}
+	}
+	result := false
+	db, err := sql.Open("sqlite3", dbname)
+	if err != nil {
+		return false, err
+	}
+	defer db.Close()
 
-		rows, err := db.Query("SELECT * FROM jails WHERE jname = ?", jname)
+	rows, err := db.Query("SELECT * FROM jails LEFT JOIN bhyve ON jails.jname=bhyve.jname WHERE jails.emulator='bhyve' AND jails.jname = ?", jname)
+	if err != nil {
+		return false, err
+	}
+
+	cols, err := rows.Columns()
+	if err != nil {
+		return false, err
+	}
+
+	rawResult := make([][]byte, len(cols))
+
+	dest := make([]interface{}, len(cols))
+	for i := range rawResult {
+		dest[i] = &rawResult[i]
+	}
+
+	for rows.Next() {
+		err = rows.Scan(dest...)
 		if err != nil {
 			return false, err
 		}
 
-		cols, err := rows.Columns()
-		if err != nil {
-			return false, err
-		}
-
-		rawResult := make([][]byte, len(cols))
-		//result := make([]string, len(cols))
-
-		dest := make([]interface{}, len(cols))
-		for i := range rawResult {
-			dest[i] = &rawResult[i]
-		}
-
-		for rows.Next() {
-			err = rows.Scan(dest...)
-			if err != nil {
-				return false, err
+		for i, raw := range rawResult {
+			if raw != nil {
+				jail.params[cols[i]] = string(raw)
+				result = true
 			}
-
-			for i, raw := range rawResult {
-				   //if raw == nil {
-				   //    result[i] = "\\N"
-				   //} else {
-				   //    result[i] = string(raw)
-				   //}
-				if raw != nil {
-					jail.params[cols[i]] = string(raw)
-					result = true
-				}
-			}
-			//fmt.Printf("%#v\n", result)
 		}
-		return result, nil
-	*/
+		//fmt.Printf("%#v\n", result)
+	}
+	return result, nil
 }
 
 func (jail *BhyveVm) GetJailViewString() string {
 	var strview string
+	_, _ = jail.GetJailFromDbFull(host.GetCbsdDbConnString(false), jail.Bname)
 	strview += "Name: " + jail.Bname + "\n"
 	strview += "IP address: " + jail.Ip4_addr + "\n"
 	strview += "Status: " + jail.GetStatusString() + "\n"
@@ -425,6 +485,12 @@ func (jail *BhyveVm) UpdateJailFromDb(dbname string) (bool, error) {
 	}
 
 	jail.VncConsole = fmt.Sprintf("%s:%d", vnc_ip_addr, vnc_port)
+	if (jail.Status == 0) || (jail.Status == 1) {
+		cur_status := jail.GetCurrentStatus()
+		if cur_status >= 0 {
+			jail.Status = cur_status
+		}
+	}
 	return true, nil
 }
 
@@ -561,7 +627,7 @@ func (jail *BhyveVm) OpenCloneDialog() {
 	cbsdCloneJailDialog.Open(jail.jtui.ViewHolder, gowid.RenderWithRatio{R: 0.3}, jail.jtui.App)
 }
 
-func (jail *BhyveVm) Edit(astart bool, version string, ip string) {
+func (jail *BhyveVm) Edit(astart bool, vnc_console string, ip string) {
 	if astart != jail.GetAutoStartBool() {
 		if astart {
 			jail.SetAstart(1)
@@ -569,12 +635,14 @@ func (jail *BhyveVm) Edit(astart bool, version string, ip string) {
 			jail.SetAstart(0)
 		}
 	}
-	if version != jail.GetVer() {
-		jail.SetVer(version)
-	}
 	if ip != "" {
 		if ip != jail.GetAddr() {
 			jail.SetAddr(ip)
+		}
+	}
+	if vnc_console != "" {
+		if vnc_console != jail.GetVncConsoleAddress() {
+			jail.SetVncConsoleAddress(vnc_console)
 		}
 	}
 	_, err := jail.PutJailToDb(host.GetCbsdDbConnString(true))
@@ -593,8 +661,8 @@ func (jail *BhyveVm) OpenEditDialog() {
 			"Edit VM "+jail.Bname,
 			nil,
 			[]string{"Autostart "}, []bool{jail.GetAutoStartBool()},
-			[]string{"Version: ", "IP address: "},
-			[]string{jail.GetVer(), jail.GetAddr()},
+			[]string{"VNC Console: ", "IP address: "},
+			[]string{jail.GetVncConsoleAddress(), jail.GetAddr()},
 			func(jname string, boolparams []bool, strparams []string) {
 				cbsdEditJailDialog.Close(jail.jtui.App)
 				jail.Edit(boolparams[0], strparams[0], strparams[1])
@@ -606,8 +674,8 @@ func (jail *BhyveVm) OpenEditDialog() {
 			"Edit VM "+jail.Bname,
 			nil,
 			[]string{"Autostart "}, []bool{jail.GetAutoStartBool()},
-			[]string{"Version: "},
-			[]string{jail.GetVer()},
+			nil,
+			nil,
 			func(jname string, boolparams []bool, strparams []string) {
 				cbsdEditJailDialog.Close(jail.jtui.App)
 				jail.Edit(boolparams[0], strparams[0], "")

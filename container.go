@@ -21,12 +21,13 @@ type Container interface {
 	GetNonRunnableActionsMenuItems() []string
 	GetName() string
 	GetStatus() int
+	GetCurrentStatus() int
 	GetAddr() string
 	SetAddr(addr string)
 	GetAstart() int
 	SetAstart(as int)
-	GetVer() string
-	SetVer(ver string)
+	//GetVer() string
+	//SetVer(ver string)
 	IsRunning() bool
 	IsRunnable() bool
 	GetStatusString() string
