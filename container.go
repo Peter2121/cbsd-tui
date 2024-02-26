@@ -9,6 +9,7 @@ import (
 type Container interface {
 	GetSignalUpdated() *gsignal.Event[string]
 	GetSignalRefresh() *gsignal.Event[any]
+	GetSignalRestoreFocus() *gsignal.Event[any]
 	SetTui(t *tui.Tui)
 	GetCommandHelp() string
 	GetCommandExit() string

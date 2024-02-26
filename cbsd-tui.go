@@ -76,6 +76,7 @@ var Containers []Container
 var mainTui *tui.Tui
 var gHeader *grid.Widget
 var gBmenu *columns.Widget
+var lastFocus list.IWalkerPosition
 
 //var topPanel *ResizeablePileWidget
 
@@ -131,7 +132,9 @@ func RunMenuAction(action string) {
 		return
 	}
 	log.Infof("JailName: " + curjail.GetName())
+	lastFocus = cbsdListJails.Walker().Focus()
 	curjail.ExecuteActionOnCommand(action)
+	//cbsdListJails.Walker().SetFocus(lastFocus, app)
 }
 
 func GetSelectedJail() Container {
@@ -148,6 +151,9 @@ func GetSelectedJail() Container {
 func GetSelectedPosition() int {
 	ifocus := cbsdListJails.Walker().Focus()
 	return int(ifocus.(list.ListPos)) - 1
+}
+func RestoreLastFocus() {
+	cbsdListJails.Walker().SetFocus(lastFocus, app)
 }
 
 func RefreshJailList() {
@@ -177,6 +183,7 @@ func RefreshJailList() {
 	for i := range Containers {
 		Containers[i].GetSignalRefresh().Connect(nil, func(a any) { RefreshJailList() })
 		Containers[i].GetSignalUpdated().Connect(nil, func(jname string) { UpdateJailLine(GetJailByName(jname)) })
+		Containers[i].GetSignalRestoreFocus().Connect(nil, func(a any) { RestoreLastFocus() })
 	}
 	/*
 		// TODO: correctly rewrite bottom menu
@@ -313,7 +320,12 @@ func GetJailStyle(jailstatus int, jailastart int) string {
 }
 
 func SetJailListFocus() {
-	newpos := list.ListPos(0)
+	var newpos list.ListPos
+	if len(Containers) > 0 {
+		newpos = list.ListPos(1)
+	} else {
+		newpos = list.ListPos(0)
+	}
 	for i, jail := range Containers {
 		if jail.IsRunning() {
 			newpos = list.ListPos(i + 1)
@@ -343,6 +355,7 @@ func JailListButtonCallBack(jname string, key gowid.IKey) {
 			RefreshJailList()
 		}
 	case tcell.KeyTab:
+		// Tab from jails list
 		if next, ok := cbsdWidgets.FindNextSelectable(gowid.Forwards, true); ok {
 			cbsdWidgets.SetFocus(app, next)
 		}
@@ -411,6 +424,7 @@ func (h handler) UnhandledInput(app gowid.IApp, ev interface{}) bool {
 		case tcell.KeyCtrlC, tcell.KeyEsc, tcell.KeyF10:
 			app.Quit()
 		case tcell.KeyTab:
+			// CtrlZ-Tab from terminal
 			if next, ok := cbsdWidgets.FindNextSelectable(gowid.Forwards, true); ok {
 				cbsdWidgets.SetFocus(app, next)
 			}
@@ -610,6 +624,7 @@ func main() {
 	for i := range Containers {
 		Containers[i].GetSignalRefresh().Connect(nil, func(a any) { RefreshJailList() })
 		Containers[i].GetSignalUpdated().Connect(nil, func(jname string) { UpdateJailLine(GetJailByName(jname)) })
+		Containers[i].GetSignalRestoreFocus().Connect(nil, func(a any) { RestoreLastFocus() })
 	}
 
 	ExitOnErr(err)

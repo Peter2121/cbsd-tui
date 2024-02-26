@@ -24,15 +24,16 @@ import (
 )
 
 type Jail struct {
-	Jname      string
-	Ip4_addr   string
-	Status     int
-	Astart     int
-	Ver        string
-	params     map[string]string
-	jtui       *tui.Tui
-	evtUpdated gsignal.Event[string]
-	evtRefresh gsignal.Event[any]
+	Jname           string
+	Ip4_addr        string
+	Status          int
+	Astart          int
+	Ver             string
+	params          map[string]string
+	jtui            *tui.Tui
+	evtUpdated      gsignal.Event[string]
+	evtRefresh      gsignal.Event[any]
+	evtRestoreFocus gsignal.Event[any]
 }
 
 const (
@@ -86,6 +87,10 @@ func (jail *Jail) GetSignalUpdated() *gsignal.Event[string] {
 
 func (jail *Jail) GetSignalRefresh() *gsignal.Event[any] {
 	return &jail.evtRefresh
+}
+
+func (jail *Jail) GetSignalRestoreFocus() *gsignal.Event[any] {
+	return &jail.evtRestoreFocus
 }
 
 func (jail *Jail) SetTui(t *tui.Tui) {
@@ -486,6 +491,7 @@ func (jail *Jail) Export() {
 		command = host.CBSD_PROGRAM
 	}
 	jail.jtui.ExecCommand(txtheader, command, args)
+	//jail.evtRestoreFocus.Emit(nil)
 }
 
 func (jail *Jail) Destroy() {
@@ -505,6 +511,7 @@ func (jail *Jail) Destroy() {
 	}
 	jail.jtui.ExecCommand(txtheader, command, args)
 	jail.evtRefresh.Emit(nil)
+	//jail.evtRestoreFocus.Emit(nil)
 	//RefreshJailList()
 }
 
@@ -582,6 +589,7 @@ func (jail *Jail) Clone(jnewjname string, jnewhname string, newip string) {
 	}
 	jail.jtui.ExecCommand(txtheader, command, args)
 	jail.evtRefresh.Emit(nil)
+	//jail.evtRestoreFocus.Emit(nil)
 	//RefreshJailList()
 }
 
@@ -920,6 +928,7 @@ func (jail *Jail) DestroySnapshot(snapname string) {
 	if jail.jtui != nil {
 		jail.jtui.ExecCommand(txtheader, command, args)
 	}
+	//jail.evtRestoreFocus.Emit(nil)
 }
 
 func (jail *Jail) OpenDestroySnapshotDialog(snapname string) {

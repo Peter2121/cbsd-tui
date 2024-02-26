@@ -22,16 +22,17 @@ import (
 )
 
 type BhyveVm struct {
-	Bname      string
-	Ip4_addr   string
-	Status     int
-	Astart     int
-	OsType     string
-	VncConsole string
-	params     map[string]string
-	jtui       *tui.Tui
-	evtUpdated gsignal.Event[string]
-	evtRefresh gsignal.Event[any]
+	Bname           string
+	Ip4_addr        string
+	Status          int
+	Astart          int
+	OsType          string
+	VncConsole      string
+	params          map[string]string
+	jtui            *tui.Tui
+	evtUpdated      gsignal.Event[string]
+	evtRefresh      gsignal.Event[any]
+	evtRestoreFocus gsignal.Event[any]
 }
 
 const (
@@ -85,6 +86,10 @@ func (jail *BhyveVm) GetSignalUpdated() *gsignal.Event[string] {
 
 func (jail *BhyveVm) GetSignalRefresh() *gsignal.Event[any] {
 	return &jail.evtRefresh
+}
+
+func (jail *BhyveVm) GetSignalRestoreFocus() *gsignal.Event[any] {
+	return &jail.evtRestoreFocus
 }
 
 func (jail *BhyveVm) SetTui(t *tui.Tui) {
