@@ -21,32 +21,24 @@ import (
 
 	"github.com/gcla/gowid"
 
-	//"github.com/gcla/gowid/vim"
 	"github.com/gcla/gowid/widgets/boxadapter"
 	"github.com/gcla/gowid/widgets/button"
 	"github.com/gcla/gowid/widgets/holder"
 	"github.com/gcla/gowid/widgets/list"
 	"github.com/gcla/gowid/widgets/terminal"
 
-	//"github.com/gcla/gowid/widgets/cellmod"
 	"github.com/gcla/gowid/widgets/checkbox"
 	"github.com/gcla/gowid/widgets/columns"
 	"github.com/gcla/gowid/widgets/dialog"
 	"github.com/gcla/gowid/widgets/divider"
 	"github.com/gcla/gowid/widgets/edit"
 
-	//"github.com/gcla/gowid/widgets/fill"
 	"github.com/gcla/gowid/widgets/framed"
-	//"github.com/gcla/gowid/widgets/grid"
 	"github.com/gcla/gowid/widgets/hpadding"
-	//"github.com/gcla/gowid/widgets/keypress"
-	//"github.com/gcla/gowid/widgets/menu"
 	"github.com/gcla/gowid/widgets/pile"
 	"github.com/gcla/gowid/widgets/styled"
 
 	"github.com/gcla/gowid/widgets/text"
-	//"github.com/gcla/gowid/widgets/vpadding"
-	//tcell "github.com/gdamore/tcell/v2"
 	log "github.com/sirupsen/logrus"
 
 	"editwithscrollbar"

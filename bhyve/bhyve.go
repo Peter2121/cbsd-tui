@@ -342,29 +342,28 @@ func GetBhyveVmsFromDb(dbname string) ([]*BhyveVm, error) {
 }
 
 func (jail *BhyveVm) PutJailToDb(dbname string) (bool, error) {
-	return false, nil
-	/*
-		db, err := sql.Open("sqlite3", dbname)
-		if err != nil {
-			return false, err
-		}
-		defer db.Close()
 
-		result, err := db.Exec("UPDATE jails SET ip4_addr=?, status=?, astart=?, ver=? WHERE jname=?", jail.Ip4_addr, jail.Status, jail.Astart, jail.Ver, jail.Jname)
-		if err != nil {
-			return false, err
-		}
-		rows_affected, err := result.RowsAffected()
-		if err != nil {
-			return false, err
-		}
+	db, err := sql.Open("sqlite3", dbname)
+	if err != nil {
+		return false, err
+	}
+	defer db.Close()
 
-		if rows_affected > 0 {
-			return true, nil
-		} else {
-			return false, nil
-		}
-	*/
+	result, err := db.Exec("UPDATE jails SET ip4_addr=?, astart=? WHERE jname=?", jail.Ip4_addr, jail.Astart, jail.Bname)
+	if err != nil {
+		return false, err
+	}
+	rows_affected, err := result.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+
+	if rows_affected > 0 {
+		return true, nil
+	} else {
+		return false, nil
+	}
+
 }
 
 func (jail *BhyveVm) GetJailFromDb(dbname string, jname string) (bool, error) {

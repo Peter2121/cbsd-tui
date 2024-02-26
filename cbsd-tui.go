@@ -60,11 +60,11 @@ var txtHelp = `- To navigate in jails/VMs list use 'Up' and 'Down' keys or mouse
 
 var logFileName = "/var/log/cbsd-tui.log"
 
-// var cbsdListHeader []gowid.IWidget
 var cbsdListLines [][]gowid.IWidget
 var cbsdListGrid []gowid.IWidget
 var cbsdListWalker *list.SimpleListWalker
-var cbsdBottomMenu []gowid.IContainerWidget
+
+// var cbsdBottomMenu []gowid.IContainerWidget
 var cbsdJailConsole *terminal.Widget
 var cbsdWidgets *ResizeablePileWidget
 var cbsdJailConsoleActive string
@@ -75,6 +75,9 @@ var VPAD = 1
 var Containers []Container
 var mainTui *tui.Tui
 var gHeader *grid.Widget
+var gBmenu *columns.Widget
+
+//var topPanel *ResizeablePileWidget
 
 // Temporary declaration - will be replaced with interface
 //var cbsdJailsFromDb []*jail.Jail
@@ -155,7 +158,6 @@ func RefreshJailList() {
 		panic(err)
 	}
 	cbsdListLines = MakeJailsLines()
-	//cbsdListHeader = GetJailsListHeader()
 	cbsdListGrid = make([]gowid.IWidget, 0)
 	gHeader = grid.New(GetJailsListHeader(), WIDTH, HPAD, VPAD, gowid.HAlignMiddle{})
 	cbsdListGrid = append(cbsdListGrid, gHeader)
@@ -176,6 +178,16 @@ func RefreshJailList() {
 		Containers[i].GetSignalRefresh().Connect(nil, func(a any) { RefreshJailList() })
 		Containers[i].GetSignalUpdated().Connect(nil, func(jname string) { UpdateJailLine(GetJailByName(jname)) })
 	}
+	/*
+		// TODO: correctly rewrite bottom menu
+		gBmenu = columns.New(MakeBottomMenu(), columns.Options{DoNotSetSelected: true, LeftKeys: make([]vim.KeyPress, 0), RightKeys: make([]vim.KeyPress, 0)})
+		listjails := vpadding.New(cbsdListJails, gowid.VAlignTop{}, gowid.RenderFlow{})
+		top_panel := NewResizeablePile([]gowid.IContainerWidget{
+			&gowid.ContainerWidget{IWidget: listjails, D: gowid.RenderWithWeight{W: 1}},
+			&gowid.ContainerWidget{IWidget: gBmenu, D: gowid.RenderWithUnits{U: 1}},
+		})
+		cbsdWidgets.SubWidgets()[0] = &gowid.ContainerWidget{IWidget: top_panel, D: gowid.RenderWithWeight{W: 1}}
+	*/
 	SetJailListFocus()
 }
 
@@ -436,8 +448,8 @@ func GetStyledWidget(w gowid.IWidget, color string) *styled.Widget {
 	)
 }
 
-func MakeBottomMenu() {
-	cbsdBottomMenu = make([]gowid.IContainerWidget, 0)
+func MakeBottomMenu() []gowid.IContainerWidget {
+	cbsdBottomMenu := make([]gowid.IContainerWidget, 0)
 	menu_text := make([]string, 0)
 	menu_text2 := make([]string, 0)
 	if len(Containers) > 0 {
@@ -462,6 +474,7 @@ func MakeBottomMenu() {
 		}})
 		cbsdBottomMenu = append(cbsdBottomMenu, &gowid.ContainerWidget{IWidget: mbtn, D: gowid.RenderFixed{}})
 	}
+	return cbsdBottomMenu
 }
 
 func GetContainersFromDb(c_type string, db string) ([]Container, error) {
@@ -540,7 +553,6 @@ func main() {
 	}
 
 	cbsdListLines = MakeJailsLines()
-	//cbsdListHeader = GetJailsListHeader()
 
 	cbsdListGrid = make([]gowid.IWidget, 0)
 	gHeader = grid.New(GetJailsListHeader(), WIDTH, HPAD, VPAD, gowid.HAlignMiddle{})
@@ -569,17 +581,17 @@ func main() {
 	cbsdListJails = list.New(cbsdListWalker)
 	listjails := vpadding.New(cbsdListJails, gowid.VAlignTop{}, gowid.RenderFlow{})
 
-	MakeBottomMenu()
-	gbmenu := columns.New(cbsdBottomMenu, columns.Options{DoNotSetSelected: true, LeftKeys: make([]vim.KeyPress, 0), RightKeys: make([]vim.KeyPress, 0)})
+	//MakeBottomMenu()
+	gBmenu = columns.New(MakeBottomMenu(), columns.Options{DoNotSetSelected: true, LeftKeys: make([]vim.KeyPress, 0), RightKeys: make([]vim.KeyPress, 0)})
 
-	toppanel := NewResizeablePile([]gowid.IContainerWidget{
+	top_panel := NewResizeablePile([]gowid.IContainerWidget{
 		&gowid.ContainerWidget{IWidget: listjails, D: gowid.RenderWithWeight{W: 1}},
-		&gowid.ContainerWidget{IWidget: gbmenu, D: gowid.RenderWithUnits{U: 1}},
+		&gowid.ContainerWidget{IWidget: gBmenu, D: gowid.RenderWithUnits{U: 1}},
 	})
 	hline := styled.New(fill.New('⎯'), gowid.MakePaletteRef("line"))
 
 	cbsdWidgets = NewResizeablePile([]gowid.IContainerWidget{
-		&gowid.ContainerWidget{IWidget: toppanel, D: gowid.RenderWithWeight{W: 1}},
+		&gowid.ContainerWidget{IWidget: top_panel, D: gowid.RenderWithWeight{W: 1}},
 		&gowid.ContainerWidget{IWidget: hline, D: gowid.RenderWithUnits{U: 1}},
 		&gowid.ContainerWidget{IWidget: cbsdJailConsole, D: gowid.RenderWithWeight{W: 1}},
 	})
