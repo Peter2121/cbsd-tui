@@ -207,6 +207,7 @@ func (tui *Tui) ExecCommand(title string, command string, args []string) {
 			}
 		}
 	*/
+	//outdlg.Callbacks.AddCallback("Close", jail.evtRestoreFocus.Emit(nil))
 	outdlg.Open(tui.ViewHolder, gowid.RenderWithRatio{R: 0.7}, tui.App)
 	tui.App.RedrawTerminal()
 	cmd = exec.Command(command, args...)

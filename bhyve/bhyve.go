@@ -3,6 +3,7 @@ package bhyve
 import (
 	"bytes"
 	"database/sql"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -73,6 +74,9 @@ var commandJailClone string = "bclone"
 var commandJailExport string = "bexport"
 var commandJailDestroy string = "bdestroy"
 var commandJailStatus string = "jstatus"
+var commandJailGetParam string = "bget"
+var commandJailSetParam string = "bset"
+var argJailIpv4Addr string = "ip4_addr"
 var argJailName = "jname"
 var argSnapName = "snapname"
 
@@ -320,7 +324,7 @@ func GetBhyveVmsFromDb(dbname string) ([]*BhyveVm, error) {
 	defer db.Close()
 
 	//jails_list_query := "SELECT jname,ip4_addr,status,astart FROM jails WHERE emulator='bhyve'"
-	jails_list_query := "SELECT jails.jname,jails.ip4_addr,jails.status,jails.astart,bhyve.vm_os_type,bhyve.vm_vnc_port,bhyve.bhyve_vnc_tcp_bind FROM jails LEFT JOIN bhyve ON jails.jname=bhyve.jname WHERE jails.emulator='bhyve'"
+	jails_list_query := "SELECT jails.jname,jails.status,jails.astart,bhyve.vm_os_type,bhyve.vm_vnc_port,bhyve.bhyve_vnc_tcp_bind FROM jails LEFT JOIN bhyve ON jails.jname=bhyve.jname WHERE jails.emulator='bhyve'"
 	rows, err := db.Query(jails_list_query)
 	if err != nil {
 		return jails, err
@@ -328,11 +332,12 @@ func GetBhyveVmsFromDb(dbname string) ([]*BhyveVm, error) {
 
 	for rows.Next() {
 		jail := New()
-		err = rows.Scan(&jail.Bname, &jail.Ip4_addr, &jail.Status, &jail.Astart, &jail.OsType, &vnc_port, &vnc_ip_addr)
+		err = rows.Scan(&jail.Bname, &jail.Status, &jail.Astart, &jail.OsType, &vnc_port, &vnc_ip_addr)
 		if err != nil {
 			return jails, err
 		}
 		jail.VncConsole = fmt.Sprintf("%s:%d", vnc_ip_addr, vnc_port)
+		jail.Ip4_addr, err = jail.GetJailParam(argJailIpv4Addr)
 		if (jail.Status == 0) || (jail.Status == 1) {
 			cur_status := jail.GetCurrentStatus()
 			if cur_status >= 0 {
@@ -346,29 +351,63 @@ func GetBhyveVmsFromDb(dbname string) ([]*BhyveVm, error) {
 	return jails, nil
 }
 
+func (jail *BhyveVm) GetVncParams() (string, int) {
+	data := strings.Split(jail.VncConsole, ":")
+	if len(data) < 2 {
+		return "", 0
+	}
+	port, err := strconv.Atoi(data[1])
+	if err != nil {
+		return "", 0
+	}
+	// TODO: validate IP address and TCP port
+	return data[0], port
+}
+
 func (jail *BhyveVm) PutJailToDb(dbname string) (bool, error) {
 
+	var rows_affected int64
+	var err error
 	db, err := sql.Open("sqlite3", dbname)
 	if err != nil {
 		return false, err
 	}
 	defer db.Close()
 
-	result, err := db.Exec("UPDATE jails SET ip4_addr=?, astart=? WHERE jname=?", jail.Ip4_addr, jail.Astart, jail.Bname)
+	result, err1 := db.Exec("UPDATE jails SET astart=? WHERE jname=?", jail.Astart, jail.Bname)
+	if err1 != nil {
+		return false, err1
+	}
+	rows_affected, err = result.RowsAffected()
 	if err != nil {
 		return false, err
 	}
-	rows_affected, err := result.RowsAffected()
-	if err != nil {
-		return false, err
+	if rows_affected == 0 {
+		return false, errors.New("Cannot write VM parameters to database")
 	}
 
-	if rows_affected > 0 {
-		return true, nil
+	vnc_addr, vnc_port := jail.GetVncParams()
+	if (len(vnc_addr) > 0) && (vnc_port > 0) {
+		result, err := db.Exec("UPDATE bhyve SET bhyve_vnc_tcp_bind=?,vm_vnc_port=? WHERE jname=?", vnc_addr, vnc_port, jail.Bname)
+		if err != nil {
+			return false, err
+		}
+		rows_affected, err = result.RowsAffected()
+		if err != nil {
+			return false, err
+		}
+		if rows_affected == 0 {
+			return false, errors.New("Cannot write VNC params to database")
+		}
 	} else {
-		return false, nil
+		return false, errors.New(fmt.Sprintf("Cannot get valid VNC params from %s", jail.VncConsole))
 	}
 
+	err = jail.SetJailParam(argJailIpv4Addr, jail.Ip4_addr)
+	if err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func (jail *BhyveVm) GetJailFromDb(dbname string, jname string) (bool, error) {
@@ -382,9 +421,9 @@ func (jail *BhyveVm) GetJailFromDb(dbname string, jname string) (bool, error) {
 	var vnc_ip_addr string = ""
 
 	//row := db.QueryRow("SELECT jname,ip4_addr,status,astart,ver FROM jails WHERE jname = ?", jname)
-	row := db.QueryRow("SELECT jails.jname,jails.ip4_addr,jails.status,jails.astart,bhyve.vm_os_type,bhyve.vm_vnc_port,bhyve.bhyve_vnc_tcp_bind FROM jails LEFT JOIN bhyve ON jails.jname=bhyve.jname WHERE jails.emulator='bhyve' AND jails.jname = ?", jname)
+	row := db.QueryRow("SELECT jails.jname,jails.status,jails.astart,bhyve.vm_os_type,bhyve.vm_vnc_port,bhyve.bhyve_vnc_tcp_bind FROM jails LEFT JOIN bhyve ON jails.jname=bhyve.jname WHERE jails.emulator='bhyve' AND jails.jname = ?", jname)
 
-	if err := row.Scan(&jail.Bname, &jail.Ip4_addr, &jail.Status, &jail.Astart, &jail.OsType, &vnc_port, &vnc_ip_addr); err != nil {
+	if err := row.Scan(&jail.Bname, &jail.Status, &jail.Astart, &jail.OsType, &vnc_port, &vnc_ip_addr); err != nil {
 		if err == sql.ErrNoRows {
 			return false, nil
 		}
@@ -392,6 +431,7 @@ func (jail *BhyveVm) GetJailFromDb(dbname string, jname string) (bool, error) {
 	}
 
 	jail.VncConsole = fmt.Sprintf("%s:%d", vnc_ip_addr, vnc_port)
+	jail.Ip4_addr, err = jail.GetJailParam(argJailIpv4Addr)
 	if (jail.Status == 0) || (jail.Status == 1) {
 		cur_status := jail.GetCurrentStatus()
 		if cur_status >= 0 {
@@ -479,9 +519,9 @@ func (jail *BhyveVm) UpdateJailFromDb(dbname string) (bool, error) {
 	var vnc_port int = 0
 	var vnc_ip_addr string = ""
 
-	row := db.QueryRow("SELECT jails.jname,jails.ip4_addr,jails.status,jails.astart,bhyve.vm_os_type,bhyve.vm_vnc_port,bhyve.bhyve_vnc_tcp_bind FROM jails LEFT JOIN bhyve ON jails.jname=bhyve.jname WHERE jails.emulator='bhyve' AND jails.jname = ?", jail.Bname)
+	row := db.QueryRow("SELECT jails.jname,jails.status,jails.astart,bhyve.vm_os_type,bhyve.vm_vnc_port,bhyve.bhyve_vnc_tcp_bind FROM jails LEFT JOIN bhyve ON jails.jname=bhyve.jname WHERE jails.emulator='bhyve' AND jails.jname = ?", jail.Bname)
 
-	if err := row.Scan(&jail.Bname, &jail.Ip4_addr, &jail.Status, &jail.Astart, &jail.OsType, &vnc_port, &vnc_ip_addr); err != nil {
+	if err := row.Scan(&jail.Bname, &jail.Status, &jail.Astart, &jail.OsType, &vnc_port, &vnc_ip_addr); err != nil {
 		if err == sql.ErrNoRows {
 			return false, nil
 		}
@@ -489,6 +529,7 @@ func (jail *BhyveVm) UpdateJailFromDb(dbname string) (bool, error) {
 	}
 
 	jail.VncConsole = fmt.Sprintf("%s:%d", vnc_ip_addr, vnc_port)
+	jail.Ip4_addr, err = jail.GetJailParam(argJailIpv4Addr)
 	if (jail.Status == 0) || (jail.Status == 1) {
 		cur_status := jail.GetCurrentStatus()
 		if cur_status >= 0 {
@@ -977,4 +1018,58 @@ func (jail *BhyveVm) GetAllParams() []string {
 	params[3] = jail.OsType
 	params[4] = jail.VncConsole
 	return params
+}
+
+func (jail *BhyveVm) GetJailParam(param string) (string, error) {
+	var stdout, stderr bytes.Buffer
+	var command string = ""
+	args := make([]string, 0)
+	if host.USE_DOAS {
+		args = append(args, host.CBSD_PROGRAM)
+	}
+	args = append(args, commandJailGetParam)
+	args = append(args, "mode=quiet")
+	args = append(args, param)
+	args = append(args, fmt.Sprintf("%s=%s", argJailName, jail.Bname))
+	if host.USE_DOAS {
+		command = host.DOAS_PROGRAM
+	} else {
+		command = host.CBSD_PROGRAM
+	}
+	cmd := exec.Command(command, args...)
+	cmd.Env = os.Environ()
+	cmd.Env = append(cmd.Env, "NOCOLOR=1")
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	if err != nil {
+		//log.Errorf("cmd.Run() failed with %s\n", err)
+		return "", err
+	}
+	str_out := string(stdout.Bytes())
+	str_out = strings.TrimSuffix(str_out, "\n")
+	return str_out, nil
+}
+
+func (jail *BhyveVm) SetJailParam(param string, value string) error {
+	var command string
+	args := make([]string, 0)
+	if host.USE_DOAS {
+		args = append(args, host.CBSD_PROGRAM)
+	}
+	args = append(args, commandJailSetParam)
+	args = append(args, fmt.Sprintf("%s=%s", param, value))
+	args = append(args, fmt.Sprintf("%s=%s", argJailName, jail.Bname))
+	if host.USE_DOAS {
+		command = host.DOAS_PROGRAM
+	} else {
+		command = host.CBSD_PROGRAM
+	}
+	cmd := exec.Command(command, args...)
+	err := cmd.Run()
+	if err != nil {
+		//log.Errorf("cmd.Run() failed with %s\n", err)
+		return err
+	}
+	return nil
 }
