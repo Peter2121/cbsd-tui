@@ -23,17 +23,16 @@ import (
 )
 
 type BhyveVm struct {
-	Bname           string
-	Ip4_addr        string
-	Status          int
-	Astart          int
-	OsType          string
-	VncConsole      string
-	params          map[string]string
-	jtui            *tui.Tui
-	evtUpdated      gsignal.Event[string]
-	evtRefresh      gsignal.Event[any]
-	evtRestoreFocus gsignal.Event[any]
+	Bname      string
+	Ip4_addr   string
+	Status     int
+	Astart     int
+	OsType     string
+	VncConsole string
+	params     map[string]string
+	jtui       *tui.Tui
+	evtUpdated gsignal.Event[string]
+	evtRefresh gsignal.Event[any]
 }
 
 const (
@@ -90,10 +89,6 @@ func (jail *BhyveVm) GetSignalUpdated() *gsignal.Event[string] {
 
 func (jail *BhyveVm) GetSignalRefresh() *gsignal.Event[any] {
 	return &jail.evtRefresh
-}
-
-func (jail *BhyveVm) GetSignalRestoreFocus() *gsignal.Event[any] {
-	return &jail.evtRestoreFocus
 }
 
 func (jail *BhyveVm) SetTui(t *tui.Tui) {
@@ -210,15 +205,6 @@ func (jail *BhyveVm) GetVncConsoleAddress() string {
 func (jail *BhyveVm) SetVncConsoleAddress(va string) {
 	jail.VncConsole = va
 }
-
-/*
-func (jail *BhyveVm) GetVer() string {
-	return "N/A"
-}
-
-func (jail *BhyveVm) SetVer(ver string) {
-}
-*/
 
 func (jail *BhyveVm) IsRunning() bool {
 	if jail.Status == 1 {
@@ -576,7 +562,6 @@ func (jail *BhyveVm) Destroy() {
 	}
 	jail.jtui.ExecCommand(txtheader, command, args)
 	jail.evtRefresh.Emit(nil)
-	//RefreshJailList()
 }
 
 func (jail *BhyveVm) OpenDestroyDialog() {
@@ -653,7 +638,6 @@ func (jail *BhyveVm) Clone(jnewjname string, jnewhname string, newip string) {
 	}
 	jail.jtui.ExecCommand(txtheader, command, args)
 	jail.evtRefresh.Emit(nil)
-	//RefreshJailList()
 }
 
 func (jail *BhyveVm) OpenCloneDialog() {
@@ -695,7 +679,6 @@ func (jail *BhyveVm) Edit(astart bool, vnc_console string, ip string) {
 		panic(err)
 	}
 	jail.evtUpdated.Emit(jail.Bname)
-	//UpdateJailLine(jail)
 }
 
 func (jail *BhyveVm) OpenEditDialog() {
@@ -763,15 +746,6 @@ func (jail *BhyveVm) StartStop() {
 		jail.jtui.ExecCommand(txtheader, command, args)
 	} else if jail.IsRunnable() {
 		txtheader = "Starting VM...\n"
-		/*
-			if USE_DOAS {
-				args = append(args, "cbsd")
-			}
-			args = append(args, "jstart")
-			args = append(args, "inter=1")
-			args = append(args, "quiet=1") // Temporary workaround for lock reading stdout when jail service use stderr
-			args = append(args, "jname="+jail.Name)
-		*/
 		command = host.SHELL_PROGRAM
 		script, err := jail.CreateScriptStartJail()
 		if err != nil {
@@ -787,7 +761,6 @@ func (jail *BhyveVm) StartStop() {
 	}
 	_, _ = jail.UpdateJailFromDb(host.GetCbsdDbConnString(false))
 	jail.evtUpdated.Emit(jail.Bname)
-	//UpdateJailLine(jail)
 }
 
 func (jail *BhyveVm) GetStartCommand() string {

@@ -24,16 +24,15 @@ import (
 )
 
 type Jail struct {
-	Jname           string
-	Ip4_addr        string
-	Status          int
-	Astart          int
-	Ver             string
-	params          map[string]string
-	jtui            *tui.Tui
-	evtUpdated      gsignal.Event[string]
-	evtRefresh      gsignal.Event[any]
-	evtRestoreFocus gsignal.Event[any]
+	Jname      string
+	Ip4_addr   string
+	Status     int
+	Astart     int
+	Ver        string
+	params     map[string]string
+	jtui       *tui.Tui
+	evtUpdated gsignal.Event[string]
+	evtRefresh gsignal.Event[any]
 }
 
 const (
@@ -87,10 +86,6 @@ func (jail *Jail) GetSignalUpdated() *gsignal.Event[string] {
 
 func (jail *Jail) GetSignalRefresh() *gsignal.Event[any] {
 	return &jail.evtRefresh
-}
-
-func (jail *Jail) GetSignalRestoreFocus() *gsignal.Event[any] {
-	return &jail.evtRestoreFocus
 }
 
 func (jail *Jail) SetTui(t *tui.Tui) {
@@ -491,7 +486,6 @@ func (jail *Jail) Export() {
 		command = host.CBSD_PROGRAM
 	}
 	jail.jtui.ExecCommand(txtheader, command, args)
-	//jail.evtRestoreFocus.Emit(nil)
 }
 
 func (jail *Jail) Destroy() {
@@ -511,8 +505,6 @@ func (jail *Jail) Destroy() {
 	}
 	jail.jtui.ExecCommand(txtheader, command, args)
 	jail.evtRefresh.Emit(nil)
-	//jail.evtRestoreFocus.Emit(nil)
-	//RefreshJailList()
 }
 
 func (jail *Jail) OpenDestroyDialog() {
@@ -589,8 +581,6 @@ func (jail *Jail) Clone(jnewjname string, jnewhname string, newip string) {
 	}
 	jail.jtui.ExecCommand(txtheader, command, args)
 	jail.evtRefresh.Emit(nil)
-	//jail.evtRestoreFocus.Emit(nil)
-	//RefreshJailList()
 }
 
 func (jail *Jail) OpenCloneDialog() {
@@ -630,7 +620,6 @@ func (jail *Jail) Edit(astart bool, version string, ip string) {
 		panic(err)
 	}
 	jail.evtUpdated.Emit(jail.Jname)
-	//UpdateJailLine(jail)
 }
 
 func (jail *Jail) OpenEditDialog() {
@@ -698,15 +687,6 @@ func (jail *Jail) StartStop() {
 		jail.jtui.ExecCommand(txtheader, command, args)
 	} else if jail.IsRunnable() {
 		txtheader = "Starting jail...\n"
-		/*
-			if USE_DOAS {
-				args = append(args, "cbsd")
-			}
-			args = append(args, "jstart")
-			args = append(args, "inter=1")
-			args = append(args, "quiet=1") // Temporary workaround for lock reading stdout when jail service use stderr
-			args = append(args, "jname="+jail.Name)
-		*/
 		command = host.SHELL_PROGRAM
 		script, err := jail.CreateScriptStartJail()
 		if err != nil {
@@ -722,7 +702,6 @@ func (jail *Jail) StartStop() {
 	}
 	_, _ = jail.UpdateJailFromDb(host.GetCbsdDbConnString(false))
 	jail.evtUpdated.Emit(jail.Jname)
-	//UpdateJailLine(jail)
 }
 
 func (jail *Jail) GetStartCommand() string {
@@ -928,7 +907,6 @@ func (jail *Jail) DestroySnapshot(snapname string) {
 	if jail.jtui != nil {
 		jail.jtui.ExecCommand(txtheader, command, args)
 	}
-	//jail.evtRestoreFocus.Emit(nil)
 }
 
 func (jail *Jail) OpenDestroySnapshotDialog(snapname string) {

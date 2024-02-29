@@ -76,7 +76,8 @@ var Containers []Container
 var mainTui *tui.Tui
 var gHeader *grid.Widget
 var gBmenu *columns.Widget
-var lastFocus list.IWalkerPosition
+
+var lastFocusPosition int
 
 //var topPanel *ResizeablePileWidget
 
@@ -132,9 +133,7 @@ func RunMenuAction(action string) {
 		return
 	}
 	log.Infof("JailName: " + curjail.GetName())
-	lastFocus = cbsdListJails.Walker().Focus()
 	curjail.ExecuteActionOnCommand(action)
-	//cbsdListJails.Walker().SetFocus(lastFocus, app)
 }
 
 func GetSelectedJail() Container {
@@ -152,13 +151,9 @@ func GetSelectedPosition() int {
 	ifocus := cbsdListJails.Walker().Focus()
 	return int(ifocus.(list.ListPos)) - 1
 }
-func RestoreLastFocus() {
-	cbsdListJails.Walker().SetFocus(lastFocus, app)
-}
 
 func RefreshJailList() {
 	var err error
-	//cbsdJailsFromDb, err = jail.GetJailsFromDb(host.GetCbsdDbConnString(false))
 	Containers, err = GetContainersFromDb(ctype, host.GetCbsdDbConnString(false))
 	if err != nil {
 		panic(err)
@@ -183,7 +178,6 @@ func RefreshJailList() {
 	for i := range Containers {
 		Containers[i].GetSignalRefresh().Connect(nil, func(a any) { RefreshJailList() })
 		Containers[i].GetSignalUpdated().Connect(nil, func(jname string) { UpdateJailLine(GetJailByName(jname)) })
-		Containers[i].GetSignalRestoreFocus().Connect(nil, func(a any) { RestoreLastFocus() })
 	}
 	/*
 		// TODO: correctly rewrite bottom menu
@@ -209,7 +203,7 @@ func UpdateJailLine(jail Container) {
 		style := GetJailStyle(jail.GetStatus(), jail.GetAstart())
 		//	var cbsdJlsHeader = []string{"NAME", "IP4_ADDRESS", "STATUS", "AUTOSTART", "VERSION"}
 
-		line[0] = GetMenuButton(jail)
+		line[0] = GetMenuButton(jail, "")
 		jail_params := jail.GetAllParams()
 		for i, param := range jail_params {
 			line[i+1] = GetStyledWidget(text.New(param, HALIGN_MIDDLE), style)
@@ -217,9 +211,17 @@ func UpdateJailLine(jail Container) {
 	}
 }
 
-func GetMenuButton(jail Container) *keypress.Widget {
+func ChangeJailBtnColor(color string, position int) {
+	line := cbsdListLines[position]
+	jail := Containers[position]
+	line[0] = GetMenuButton(jail, color)
+}
+
+func GetMenuButton(jail Container, style string) *keypress.Widget {
 	btxt := text.New(jail.GetName(), HALIGN_MIDDLE)
-	style := GetJailStyle(jail.GetStatus(), jail.GetAstart())
+	if len(style) == 0 {
+		style = GetJailStyle(jail.GetStatus(), jail.GetAstart())
+	}
 	txts := GetStyledWidget(btxt, style)
 	btnnew := button.New(txts, button.Options{
 		Decoration: button.BareDecoration,
@@ -366,7 +368,7 @@ func MakeGridLine(jail Container) []gowid.IWidget {
 	style := "gray"
 	line := make([]gowid.IWidget, 0)
 	style = GetJailStyle(jail.GetStatus(), jail.GetAstart())
-	line = append(line, GetMenuButton(jail))
+	line = append(line, GetMenuButton(jail, ""))
 	jail_params := jail.GetAllParams()
 	for _, param := range jail_params {
 		line = append(line, GetStyledWidget(text.New(param, HALIGN_MIDDLE), style))
@@ -521,31 +523,35 @@ func GetContainersFromDb(c_type string, db string) ([]Container, error) {
 
 func main() {
 	var err error
-
+	g23color, _ := gowid.MakeColorSafe("g23")
+	//g7color, _ := gowid.MakeColorSafe("g7")
 	palette := gowid.Palette{
-		"red-nofocus":   gowid.MakePaletteEntry(gowid.ColorPurple, gowid.ColorNone),
-		"red-focus":     gowid.MakePaletteEntry(gowid.ColorBlack, gowid.ColorPurple),
-		"green-nofocus": gowid.MakePaletteEntry(gowid.ColorGreen, gowid.ColorNone),
-		"green-focus":   gowid.MakePaletteEntry(gowid.ColorBlack, gowid.ColorGreen),
-		"white-nofocus": gowid.MakePaletteEntry(gowid.ColorWhite, gowid.ColorNone),
-		"white-focus":   gowid.MakePaletteEntry(gowid.ColorBlack, gowid.ColorWhite),
-		"gray-nofocus":  gowid.MakePaletteEntry(gowid.ColorLightGray, gowid.ColorNone),
-		"gray-focus":    gowid.MakePaletteEntry(gowid.ColorBlack, gowid.ColorLightGray),
-		"cyan-nofocus":  gowid.MakePaletteEntry(gowid.ColorCyan, gowid.ColorNone),
-		"cyan-focus":    gowid.MakePaletteEntry(gowid.ColorBlack, gowid.ColorCyan),
-		"red":           gowid.MakePaletteEntry(gowid.ColorRed, gowid.ColorNone),
-		"redgray":       gowid.MakePaletteEntry(gowid.ColorRed, gowid.ColorLightGray),
-		"blackgreen":    gowid.MakePaletteEntry(gowid.ColorBlack, gowid.ColorGreen),
-		"graydgreen":    gowid.MakePaletteEntry(gowid.ColorLightGray, gowid.ColorDarkGreen),
-		"bluebg":        gowid.MakePaletteEntry(gowid.ColorWhite, gowid.ColorCyan),
-		"invred":        gowid.MakePaletteEntry(gowid.ColorBlack, gowid.ColorRed),
-		"streak":        gowid.MakePaletteEntry(gowid.ColorBlack, gowid.ColorRed),
-		"test1focus":    gowid.MakePaletteEntry(gowid.ColorBlue, gowid.ColorBlack),
-		"test1notfocus": gowid.MakePaletteEntry(gowid.ColorGreen, gowid.ColorBlack),
-		"test2focus":    gowid.MakePaletteEntry(gowid.ColorMagenta, gowid.ColorBlack),
-		"test2notfocus": gowid.MakePaletteEntry(gowid.ColorCyan, gowid.ColorBlack),
-		"yellow":        gowid.MakePaletteEntry(gowid.ColorYellow, gowid.ColorNone),
-		"magenta":       gowid.MakePaletteEntry(gowid.ColorMagenta, gowid.ColorNone),
+		"red-nofocus":      gowid.MakePaletteEntry(gowid.ColorPurple, gowid.ColorNone),
+		"red-focus":        gowid.MakePaletteEntry(gowid.ColorBlack, gowid.ColorPurple),
+		"green-nofocus":    gowid.MakePaletteEntry(gowid.ColorGreen, gowid.ColorNone),
+		"green-focus":      gowid.MakePaletteEntry(gowid.ColorBlack, gowid.ColorGreen),
+		"white-nofocus":    gowid.MakePaletteEntry(gowid.ColorWhite, gowid.ColorNone),
+		"white-focus":      gowid.MakePaletteEntry(gowid.ColorBlack, gowid.ColorWhite),
+		"gray-nofocus":     gowid.MakePaletteEntry(gowid.ColorLightGray, gowid.ColorNone),
+		"gray-focus":       gowid.MakePaletteEntry(gowid.ColorBlack, gowid.ColorLightGray),
+		"cyan-nofocus":     gowid.MakePaletteEntry(gowid.ColorCyan, gowid.ColorNone),
+		"cyan-focus":       gowid.MakePaletteEntry(gowid.ColorBlack, gowid.ColorCyan),
+		"red":              gowid.MakePaletteEntry(gowid.ColorRed, gowid.ColorNone),
+		"redgray":          gowid.MakePaletteEntry(gowid.ColorRed, gowid.ColorLightGray),
+		"blackgreen":       gowid.MakePaletteEntry(gowid.ColorBlack, gowid.ColorGreen),
+		"graydgreen":       gowid.MakePaletteEntry(gowid.ColorLightGray, gowid.ColorDarkGreen),
+		"bluebg":           gowid.MakePaletteEntry(gowid.ColorWhite, gowid.ColorCyan),
+		"invred":           gowid.MakePaletteEntry(gowid.ColorBlack, gowid.ColorRed),
+		"streak":           gowid.MakePaletteEntry(gowid.ColorBlack, gowid.ColorRed),
+		"darkblue-focus":   gowid.MakePaletteEntry(gowid.ColorWhite, gowid.ColorDarkBlue),
+		"darkblue-nofocus": gowid.MakePaletteEntry(gowid.ColorWhite, gowid.ColorDarkBlue),
+		"inactive-focus":   gowid.MakePaletteEntry(gowid.ColorWhite, g23color),
+		"inactive-nofocus": gowid.MakePaletteEntry(gowid.ColorWhite, g23color),
+		"test2focus":       gowid.MakePaletteEntry(gowid.ColorMagenta, gowid.ColorBlack),
+		"test2notfocus":    gowid.MakePaletteEntry(gowid.ColorCyan, gowid.ColorBlack),
+		"yellow-focus":     gowid.MakePaletteEntry(gowid.ColorYellow, gowid.ColorYellow),
+		"yellow-nofocus":   gowid.MakePaletteEntry(gowid.ColorYellow, gowid.ColorYellow),
+		"magenta":          gowid.MakePaletteEntry(gowid.ColorMagenta, gowid.ColorNone),
 	}
 
 	f := RedirectLogger(logFileName)
@@ -595,13 +601,30 @@ func main() {
 	cbsdListJails = list.New(cbsdListWalker)
 	listjails := vpadding.New(cbsdListJails, gowid.VAlignTop{}, gowid.RenderFlow{})
 
-	//MakeBottomMenu()
 	gBmenu = columns.New(MakeBottomMenu(), columns.Options{DoNotSetSelected: true, LeftKeys: make([]vim.KeyPress, 0), RightKeys: make([]vim.KeyPress, 0)})
 
 	top_panel := NewResizeablePile([]gowid.IContainerWidget{
 		&gowid.ContainerWidget{IWidget: listjails, D: gowid.RenderWithWeight{W: 1}},
 		&gowid.ContainerWidget{IWidget: gBmenu, D: gowid.RenderWithUnits{U: 1}},
 	})
+	top_panel.OnFocusChanged(
+		gowid.WidgetCallback{
+			Name: "onfocuscb",
+			WidgetChangedFunction: func(app gowid.IApp, w gowid.IWidget) {
+				pw := w.(*pile.Widget)
+				focus := pw.Focus()
+				if focus == 1 {
+					lastFocusPosition = GetSelectedPosition()
+					ChangeJailBtnColor("inactive", lastFocusPosition)
+				} else {
+					ChangeJailBtnColor("", GetSelectedPosition())
+					if (lastFocusPosition >= 0) && (lastFocusPosition < len(cbsdListLines)) {
+						ChangeJailBtnColor("", lastFocusPosition)
+					}
+				}
+			},
+		},
+	)
 	hline := styled.New(fill.New('⎯'), gowid.MakePaletteRef("line"))
 
 	cbsdWidgets = NewResizeablePile([]gowid.IContainerWidget{
@@ -624,7 +647,6 @@ func main() {
 	for i := range Containers {
 		Containers[i].GetSignalRefresh().Connect(nil, func(a any) { RefreshJailList() })
 		Containers[i].GetSignalUpdated().Connect(nil, func(jname string) { UpdateJailLine(GetJailByName(jname)) })
-		Containers[i].GetSignalRestoreFocus().Connect(nil, func(a any) { RestoreLastFocus() })
 	}
 
 	ExitOnErr(err)
