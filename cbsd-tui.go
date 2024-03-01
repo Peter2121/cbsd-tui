@@ -228,7 +228,7 @@ func GetMenuButton(jail Container, style string) *keypress.Widget {
 	})
 	btnnew.OnDoubleClick(gowid.WidgetCallback{Name: "cbb_" + btxt.Content().String(), WidgetChangedFunction: func(app gowid.IApp, w gowid.IWidget) {
 		app.Run(gowid.RunFunction(func(app gowid.IApp) {
-			LoginToJail(btxt.Content().String())
+			LoginToJail(btxt.Content().String(), mainTui)
 		}))
 	}})
 	kpbtn := keypress.New(
@@ -261,23 +261,25 @@ func GetJailByName(jname string) Container {
 	return jail
 }
 
-func LoginToJail(jname string) {
+func LoginToJail(jname string, t *tui.Tui) {
 	if jname == cbsdJailConsoleActive {
-		SendTerminalCommand("\x03")
-		SendTerminalCommand("exit")
+		t.SendTerminalCommand("\x03")
+		t.SendTerminalCommand("exit")
 		cbsdJailConsoleActive = ""
+		t.ResetTerminal()
 		return
 	}
 	jail := GetJailByName(jname)
 	if jail != nil && jail.IsRunning() {
 		if cbsdJailConsoleActive != "" {
-			SendTerminalCommand("\x03")
-			SendTerminalCommand("exit")
+			t.SendTerminalCommand("\x03")
+			t.SendTerminalCommand("exit")
+			t.ResetTerminal()
 		}
 		if host.USE_DOAS {
-			SendTerminalCommand(host.DOAS_PROGRAM + " " + host.CBSD_PROGRAM + " " + jail.GetLoginCommand())
+			t.SendTerminalCommand(host.DOAS_PROGRAM + " " + host.CBSD_PROGRAM + " " + jail.GetLoginCommand())
 		} else {
-			SendTerminalCommand(host.CBSD_PROGRAM + " " + jail.GetLoginCommand())
+			t.SendTerminalCommand(host.CBSD_PROGRAM + " " + jail.GetLoginCommand())
 		}
 		cbsdJailConsoleActive = jname
 		if cbsdWidgets.Focus() == 0 { // TODO: check current focus more carefully
@@ -288,10 +290,12 @@ func LoginToJail(jname string) {
 	}
 }
 
+/*
 func SendTerminalCommand(cmd string) {
 	cbsdJailConsole.Write([]byte(cmd + "\n"))
-	time.Sleep(200 * time.Millisecond)
+	time.Sleep(100 * time.Millisecond)
 }
+*/
 
 func GetJailsListHeader() []gowid.IWidget {
 	header := make([]gowid.IWidget, 0)
@@ -340,7 +344,7 @@ func SetJailListFocus() {
 func JailListButtonCallBack(jname string, key gowid.IKey) {
 	switch key.Key() {
 	case tcell.KeyEnter:
-		LoginToJail(jname)
+		LoginToJail(jname, mainTui)
 	case tcell.KeyF2:
 		curjail := GetJailByName(jname)
 		curjail.OpenActionDialog()

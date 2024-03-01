@@ -12,6 +12,7 @@ require (
 )
 
 require (
+	github.com/creack/pty v1.1.15 // indirect
 	github.com/gdamore/encoding v1.0.0 // indirect
 	github.com/gdamore/tcell/v2 v2.5.0 // indirect
 	github.com/hashicorp/golang-lru v0.5.1 // indirect

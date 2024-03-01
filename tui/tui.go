@@ -16,6 +16,7 @@ import (
 	"os"
 	"os/exec"
 	"sync"
+	"syscall"
 	"time"
 	"unicode/utf8"
 
@@ -398,4 +399,10 @@ func (tui *Tui) ExecShellCommand(title string, command string, args []string, lo
 func (tui *Tui) SendTerminalCommand(cmd string) {
 	tui.Console.Write([]byte(cmd + "\n"))
 	time.Sleep(200 * time.Millisecond)
+}
+
+func (tui *Tui) ResetTerminal() {
+	sig := syscall.Signal(9)
+	tui.Console.Signal(sig)
+	tui.Console.StartCommand(tui.App, tui.Console.Width(), tui.Console.Height())
 }
