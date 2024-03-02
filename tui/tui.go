@@ -51,18 +51,20 @@ var HALIGN_LEFT text.Options = text.Options{Align: gowid.HAlignLeft{}}
 var CbsdJailConsoleActive = ""
 
 type Tui struct {
-	App        *gowid.App
-	ViewHolder *holder.Widget
-	Console    *terminal.Widget
-	LogText    string
+	App           *gowid.App
+	ViewHolder    *holder.Widget
+	Console       *terminal.Widget
+	LogText       string
+	TuiMainWidget *pile.Widget
 }
 
-func NewTui(app *gowid.App, view_holder *holder.Widget, console *terminal.Widget) *Tui {
+func NewTui(app *gowid.App, view_holder *holder.Widget, console *terminal.Widget, main *pile.Widget) *Tui {
 	res := &Tui{
-		App:        app,
-		ViewHolder: view_holder,
-		Console:    console,
-		LogText:    "",
+		App:           app,
+		ViewHolder:    view_holder,
+		Console:       console,
+		LogText:       "",
+		TuiMainWidget: main,
 	}
 	return res
 }
@@ -405,4 +407,8 @@ func (tui *Tui) ResetTerminal() {
 	sig := syscall.Signal(9)
 	tui.Console.Signal(sig)
 	tui.Console.StartCommand(tui.App, tui.Console.Width(), tui.Console.Height())
+}
+
+func (tui *Tui) SetFocus(i int) {
+	tui.TuiMainWidget.SetFocus(tui.App, i)
 }

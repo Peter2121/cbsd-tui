@@ -657,7 +657,7 @@ func main() {
 		Log:     log.StandardLogger(),
 	})
 
-	mainTui = tui.NewTui(app, viewHolder, cbsdJailConsole)
+	mainTui = tui.NewTui(app, viewHolder, cbsdJailConsole, cbsdWidgets.Widget)
 	for i := range Containers {
 		Containers[i].SetTui(mainTui)
 	}
