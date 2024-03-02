@@ -267,6 +267,7 @@ func LoginToJail(jname string, t *tui.Tui) {
 		t.SendTerminalCommand("exit")
 		cbsdJailConsoleActive = ""
 		t.ResetTerminal()
+		RestoreFocus()
 		return
 	}
 	jail := GetJailByName(jname)
@@ -275,6 +276,7 @@ func LoginToJail(jname string, t *tui.Tui) {
 			t.SendTerminalCommand("\x03")
 			t.SendTerminalCommand("exit")
 			t.ResetTerminal()
+			RestoreFocus()
 		}
 		if host.USE_DOAS {
 			t.SendTerminalCommand(host.DOAS_PROGRAM + " " + host.CBSD_PROGRAM + " " + jail.GetLoginCommand())
@@ -282,6 +284,7 @@ func LoginToJail(jname string, t *tui.Tui) {
 			t.SendTerminalCommand(host.CBSD_PROGRAM + " " + jail.GetLoginCommand())
 		}
 		cbsdJailConsoleActive = jname
+		ReleaseFocus()
 		if cbsdWidgets.Focus() == 0 { // TODO: check current focus more carefully
 			if next, ok := cbsdWidgets.FindNextSelectable(gowid.Forwards, true); ok {
 				cbsdWidgets.SetFocus(app, next)
@@ -365,6 +368,7 @@ func JailListButtonCallBack(jname string, key gowid.IKey) {
 		if next, ok := cbsdWidgets.FindNextSelectable(gowid.Forwards, true); ok {
 			cbsdWidgets.SetFocus(app, next)
 		}
+		ReleaseFocus()
 	}
 }
 
@@ -434,6 +438,7 @@ func (h handler) UnhandledInput(app gowid.IApp, ev interface{}) bool {
 			if next, ok := cbsdWidgets.FindNextSelectable(gowid.Forwards, true); ok {
 				cbsdWidgets.SetFocus(app, next)
 			}
+			RestoreFocus()
 			return handled
 		case tcell.KeyF1:
 			OpenHelpDialog()
@@ -525,6 +530,18 @@ func GetContainersFromDb(c_type string, db string) ([]Container, error) {
 	return make([]Container, 0), nil
 }
 
+func ReleaseFocus() {
+	lastFocusPosition = GetSelectedPosition()
+	ChangeJailBtnColor("inactive", lastFocusPosition)
+}
+
+func RestoreFocus() {
+	ChangeJailBtnColor("", GetSelectedPosition())
+	if (lastFocusPosition >= 0) && (lastFocusPosition < len(cbsdListLines)) {
+		ChangeJailBtnColor("", lastFocusPosition)
+	}
+}
+
 func main() {
 	var err error
 	g23color, _ := gowid.MakeColorSafe("g23")
@@ -613,18 +630,14 @@ func main() {
 	})
 	top_panel.OnFocusChanged(
 		gowid.WidgetCallback{
-			Name: "onfocuscb",
+			Name: "onfocuscbtp",
 			WidgetChangedFunction: func(app gowid.IApp, w gowid.IWidget) {
 				pw := w.(*pile.Widget)
 				focus := pw.Focus()
 				if focus == 1 {
-					lastFocusPosition = GetSelectedPosition()
-					ChangeJailBtnColor("inactive", lastFocusPosition)
+					ReleaseFocus()
 				} else {
-					ChangeJailBtnColor("", GetSelectedPosition())
-					if (lastFocusPosition >= 0) && (lastFocusPosition < len(cbsdListLines)) {
-						ChangeJailBtnColor("", lastFocusPosition)
-					}
+					RestoreFocus()
 				}
 			},
 		},
