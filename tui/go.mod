@@ -9,6 +9,7 @@ replace editwithscrollbar => ../editwithscrollbar
 require (
 	editwithscrollbar v0.0.1
 	github.com/gcla/gowid v1.4.1-0.20221101015339-ce29e21d2804
+	github.com/sirupsen/logrus v1.4.2
 )
 
 require (
@@ -21,7 +22,6 @@ require (
 	github.com/mattn/go-runewidth v0.0.13 // indirect
 	github.com/pkg/errors v0.8.1 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
-	github.com/sirupsen/logrus v1.4.2 // indirect
 	golang.org/x/sys v0.0.0-20220318055525-2edf467146b5 // indirect
 	golang.org/x/term v0.0.0-20201210144234-2321bbc49cbf // indirect
 	golang.org/x/text v0.3.7 // indirect

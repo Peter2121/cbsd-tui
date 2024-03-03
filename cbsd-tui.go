@@ -79,12 +79,6 @@ var gBmenu *columns.Widget
 
 var lastFocusPosition int
 
-//var topPanel *ResizeablePileWidget
-
-// Temporary declaration - will be replaced with interface
-//var cbsdJailsFromDb []*jail.Jail
-//var cbsdVMsFromDb []*bhyve.BhyveVm
-
 var shellProgram = "/bin/sh"
 var stdbufProgram = "/usr/bin/stdbuf"
 var logJstart = "/var/log/jstart.log"
@@ -103,7 +97,7 @@ var HALIGN_LEFT text.Options = text.Options{Align: gowid.HAlignLeft{}}
 
 func OpenHelpDialog() {
 	var HelpDialog *dialog.Widget
-	HelpDialog = tui.MakeDialogForJail(
+	HelpDialog = mainTui.MakeDialogForJail(
 		"",
 		txtProgramName,
 		[]string{txtHelp},
@@ -285,20 +279,11 @@ func LoginToJail(jname string, t *tui.Tui) {
 		}
 		cbsdJailConsoleActive = jname
 		ReleaseFocus()
-		if cbsdWidgets.Focus() == 0 { // TODO: check current focus more carefully
-			if next, ok := cbsdWidgets.FindNextSelectable(gowid.Forwards, true); ok {
-				cbsdWidgets.SetFocus(app, next)
-			}
+		if cbsdWidgets.Focus() == 0 {
+			cbsdWidgets.SetFocus(app, 3)
 		}
 	}
 }
-
-/*
-func SendTerminalCommand(cmd string) {
-	cbsdJailConsole.Write([]byte(cmd + "\n"))
-	time.Sleep(100 * time.Millisecond)
-}
-*/
 
 func GetJailsListHeader() []gowid.IWidget {
 	header := make([]gowid.IWidget, 0)
@@ -365,9 +350,12 @@ func JailListButtonCallBack(jname string, key gowid.IKey) {
 		}
 	case tcell.KeyTab:
 		// Tab from jails list
-		if next, ok := cbsdWidgets.FindNextSelectable(gowid.Forwards, true); ok {
-			cbsdWidgets.SetFocus(app, next)
-		}
+		cbsdWidgets.SetFocus(app, 3)
+		/*
+			if next, ok := cbsdWidgets.FindNextSelectable(gowid.Forwards, true); ok {
+				cbsdWidgets.SetFocus(app, next)
+			}
+		*/
 		ReleaseFocus()
 	}
 }
@@ -416,17 +404,6 @@ func (h handler) UnhandledInput(app gowid.IApp, ev interface{}) bool {
 	if ok {
 		handled = true
 		//log.Infof(string(evk.Key()))
-		/*
-			if evk.Key() == tcell.KeyCtrlC || evk.Key() == tcell.KeyEsc || evk.Key() == tcell.KeyF10 {
-				app.Quit()
-			} else if evk.Key() == tcell.KeyTab {
-				if next, ok := cbsdWidgets.FindNextSelectable(gowid.Forwards, true); ok {
-					cbsdWidgets.SetFocus(app, next)
-				}
-			} else {
-				handled = false
-			}
-		*/
 		// "[F1]Help ",            "[F2]Actions Menu ", "[F4]Edit ",   "[F5]Clone ",           "[F6]Export ",
 		// "[F7]Create Snapshot ", "[F8]Destroy ",      "[F10]Exit ",  "[F11]List Snapshots ", "[F12]Start/Stop"
 		ekey := evk.Key()
@@ -626,7 +603,6 @@ func main() {
 
 	top_panel := NewResizeablePile([]gowid.IContainerWidget{
 		&gowid.ContainerWidget{IWidget: listjails, D: gowid.RenderWithWeight{W: 1}},
-		&gowid.ContainerWidget{IWidget: gBmenu, D: gowid.RenderWithUnits{U: 1}},
 	})
 	top_panel.OnFocusChanged(
 		gowid.WidgetCallback{
@@ -642,10 +618,16 @@ func main() {
 			},
 		},
 	)
+
+	menu_panel := NewResizeablePile([]gowid.IContainerWidget{
+		&gowid.ContainerWidget{IWidget: gBmenu, D: gowid.RenderWithUnits{U: 1}},
+	})
+
 	hline := styled.New(fill.New('⎯'), gowid.MakePaletteRef("line"))
 
 	cbsdWidgets = NewResizeablePile([]gowid.IContainerWidget{
 		&gowid.ContainerWidget{IWidget: top_panel, D: gowid.RenderWithWeight{W: 1}},
+		&gowid.ContainerWidget{IWidget: menu_panel, D: gowid.RenderWithUnits{U: 1}},
 		&gowid.ContainerWidget{IWidget: hline, D: gowid.RenderWithUnits{U: 1}},
 		&gowid.ContainerWidget{IWidget: cbsdJailConsole, D: gowid.RenderWithWeight{W: 1}},
 	})

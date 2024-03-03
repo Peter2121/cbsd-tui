@@ -509,7 +509,7 @@ func (jail *Jail) Destroy() {
 
 func (jail *Jail) OpenDestroyDialog() {
 	var cbsdDestroyJailDialog *dialog.Widget
-	cbsdDestroyJailDialog = tui.MakeDialogForJail(
+	cbsdDestroyJailDialog = jail.jtui.MakeDialogForJail(
 		jail.Jname,
 		"Destroy jail "+jail.Jname,
 		[]string{"Really destroy jail " + jail.Jname + "??"},
@@ -544,7 +544,7 @@ func (jail *Jail) Snapshot(snapname string) {
 
 func (jail *Jail) OpenSnapshotDialog() {
 	var cbsdSnapshotJailDialog *dialog.Widget
-	cbsdSnapshotJailDialog = tui.MakeDialogForJail(
+	cbsdSnapshotJailDialog = jail.jtui.MakeDialogForJail(
 		jail.Jname,
 		"Snapshot jail "+jail.Jname,
 		nil, nil, nil,
@@ -585,7 +585,7 @@ func (jail *Jail) Clone(jnewjname string, jnewhname string, newip string) {
 
 func (jail *Jail) OpenCloneDialog() {
 	var cbsdCloneJailDialog *dialog.Widget
-	cbsdCloneJailDialog = tui.MakeDialogForJail(
+	cbsdCloneJailDialog = jail.jtui.MakeDialogForJail(
 		jail.Jname,
 		"Clone jail "+jail.Jname,
 		nil, nil, nil,
@@ -625,7 +625,7 @@ func (jail *Jail) Edit(astart bool, version string, ip string) {
 func (jail *Jail) OpenEditDialog() {
 	var cbsdEditJailDialog *dialog.Widget
 	if !jail.IsRunning() {
-		cbsdEditJailDialog = tui.MakeDialogForJail(
+		cbsdEditJailDialog = jail.jtui.MakeDialogForJail(
 			jail.Jname,
 			"Edit jail "+jail.Jname,
 			nil,
@@ -638,7 +638,7 @@ func (jail *Jail) OpenEditDialog() {
 			},
 		)
 	} else {
-		cbsdEditJailDialog = tui.MakeDialogForJail(
+		cbsdEditJailDialog = jail.jtui.MakeDialogForJail(
 			jail.Jname,
 			"Edit jail "+jail.Jname,
 			nil,
@@ -656,7 +656,7 @@ func (jail *Jail) OpenEditDialog() {
 
 func (jail *Jail) View() {
 	viewspace := edit.New(edit.Options{ReadOnly: true})
-	outdlg := tui.CreateActionsLogDialog(viewspace, jail.jtui.Console.Height())
+	outdlg := jail.jtui.CreateActionsLogDialog(viewspace, jail.jtui.Console.Height())
 	outdlg.Open(jail.jtui.ViewHolder, gowid.RenderWithRatio{R: 0.7}, jail.jtui.App)
 	viewspace.SetText(jail.GetJailViewString(), jail.jtui.App)
 	jail.jtui.App.RedrawTerminal()
@@ -753,7 +753,7 @@ func (jail *Jail) OpenActionDialog() {
 	} else {
 		MenuLines = jail.GetNonRunnableActionsMenuItems()
 	}
-	cbsdActionsDialog = tui.MakeActionDialogForJail(jail.Jname, "Actions for "+jail.Jname, MenuLines,
+	cbsdActionsDialog = jail.jtui.MakeActionDialogForJail(jail.Jname, "Actions for "+jail.Jname, MenuLines,
 		[]func(jname string){
 			func(jname string) {
 				cbsdActionsDialog.Close(jail.jtui.App)
@@ -883,7 +883,7 @@ func (jail *Jail) OpenSnapActionsDialog() {
 		menulines = append(menulines, s[0]+" ("+s[1]+")")
 		cbfunc = append(cbfunc, MakeWidgetChangedFunction(s[0]))
 	}
-	cbsdSnapActionsDialog = tui.MakeActionDialogForJail(jail.Jname, "Snapshots for "+jail.Jname, menulines, cbfunc)
+	cbsdSnapActionsDialog = jail.jtui.MakeActionDialogForJail(jail.Jname, "Snapshots for "+jail.Jname, menulines, cbfunc)
 	cbsdSnapActionsDialog.Open(jail.jtui.ViewHolder, gowid.RenderWithRatio{R: 0.3}, jail.jtui.App)
 }
 
@@ -911,7 +911,7 @@ func (jail *Jail) DestroySnapshot(snapname string) {
 
 func (jail *Jail) OpenDestroySnapshotDialog(snapname string) {
 	var cbsdDestroySnapDialog *dialog.Widget
-	cbsdDestroySnapDialog = tui.MakeDialogForJail(
+	cbsdDestroySnapDialog = jail.jtui.MakeDialogForJail(
 		jail.Jname,
 		"Destroy snapshot "+snapname+"\nof jail "+jail.Jname,
 		[]string{"Really destroy snapshot " + snapname + "\nof jail " + jail.Jname + "??"},

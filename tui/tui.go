@@ -69,7 +69,7 @@ func NewTui(app *gowid.App, view_holder *holder.Widget, console *terminal.Widget
 	return res
 }
 
-func MakeDialogForJail(jname string, title string, txt []string,
+func (tui *Tui) MakeDialogForJail(jname string, title string, txt []string,
 	boolparnames []string, boolpardefaults []bool,
 	strparnames []string, strpardefaults []string,
 	okfunc func(jname string, boolparams []bool, strparams []string)) *dialog.Widget {
@@ -107,7 +107,8 @@ func MakeDialogForJail(jname string, title string, txt []string,
 
 	var btncancel dialog.Button
 	var btnok dialog.Button
-	var buttons []dialog.Button
+	buttons := make([]dialog.Button, 0)
+	var retdialog *dialog.Widget = nil
 
 	htxt := text.New(title, HALIGN_MIDDLE)
 	htxtst := styled.New(htxt, gowid.MakePaletteRef("magenta"))
@@ -138,27 +139,36 @@ func MakeDialogForJail(jname string, title string, txt []string,
 
 	btnok = dialog.Button{
 		Msg: "OK",
-		Action: gowid.MakeWidgetCallback("execclonejail", gowid.WidgetChangedFunction(func(app gowid.IApp, w gowid.IWidget) {
+		Action: gowid.MakeWidgetCallback("execokfunc", gowid.WidgetChangedFunction(func(app gowid.IApp, w gowid.IWidget) {
 			for i := 0; i < nboolparams; i++ {
 				boolparams = append(boolparams, widcheck[i].IsChecked())
 			}
 			for i := 0; i < nstrparams; i++ {
 				strparams = append(strparams, wideditparams[i].Text())
 			}
+			tui.SetFocus(0)
 			okfunc(jname, boolparams, strparams)
 		})),
 	}
 
+	btncancel = dialog.Button{
+		Msg: "(ToSet)",
+		Action: gowid.MakeWidgetCallback("execsetfocus", gowid.WidgetChangedFunction(func(app gowid.IApp, w gowid.IWidget) {
+			tui.SetFocus(0)
+			retdialog.Close(tui.App)
+		})),
+	}
+
 	if nboolparams < 1 && nstrparams < 1 && okfunc == nil {
-		btncancel = dialog.Button{Msg: "Close"}
+		btncancel.Msg = "Close"
 		buttons = append(buttons, btncancel)
 	} else {
-		btncancel = dialog.Button{Msg: "Cancel"}
+		btncancel.Msg = "Cancel"
 		buttons = append(buttons, btnok)
 		buttons = append(buttons, btncancel)
 	}
 
-	retdialog := dialog.New(
+	retdialog = dialog.New(
 		framed.NewSpace(
 			lines,
 		),
@@ -172,10 +182,13 @@ func MakeDialogForJail(jname string, title string, txt []string,
 			FocusOnWidget:   true,
 		},
 	)
+
+	//	retdialog.Options.Buttons = buttons
 	return retdialog
 }
 
-func CreateActionsLogDialog(editWidget *edit.Widget, height int) *dialog.Widget {
+func (tui *Tui) CreateActionsLogDialog(editWidget *edit.Widget, height int) *dialog.Widget {
+	var actionlogdialog *dialog.Widget = nil
 	ba := boxadapter.New(
 		styled.New(
 			editwithscrollbar.NewEditWithScrollbar(editWidget),
@@ -183,10 +196,17 @@ func CreateActionsLogDialog(editWidget *edit.Widget, height int) *dialog.Widget 
 		),
 		height,
 	)
-	actionlogdialog := dialog.New(
+	btnclose := dialog.Button{
+		Msg: "Close",
+		Action: gowid.MakeWidgetCallback("execsetfocus", gowid.WidgetChangedFunction(func(app gowid.IApp, w gowid.IWidget) {
+			tui.SetFocus(0)
+			actionlogdialog.Close(tui.App)
+		})),
+	}
+	actionlogdialog = dialog.New(
 		framed.NewUnicode(ba),
 		dialog.Options{
-			Buttons:         []dialog.Button{dialog.CloseD},
+			Buttons:         []dialog.Button{btnclose},
 			Modal:           true,
 			NoShadow:        true,
 			TabToButtons:    true,
@@ -202,7 +222,7 @@ func CreateActionsLogDialog(editWidget *edit.Widget, height int) *dialog.Widget 
 func (tui *Tui) ExecCommand(title string, command string, args []string) {
 	var cmd *exec.Cmd
 	logspace := edit.New(edit.Options{ReadOnly: true})
-	outdlg := CreateActionsLogDialog(logspace, tui.Console.Height())
+	outdlg := tui.CreateActionsLogDialog(logspace, tui.Console.Height())
 	/*
 		if cbsdActionsDialog != nil {
 			if cbsdActionsDialog.IsOpen() {
@@ -257,7 +277,7 @@ func GetStyledWidget(w gowid.IWidget, color string) *styled.Widget {
 	)
 }
 
-func MakeActionDialogForJail(jname string, title string, actions []string, actionfunc []func(jname string)) *dialog.Widget {
+func (tui *Tui) MakeActionDialogForJail(jname string, title string, actions []string, actionfunc []func(jname string)) *dialog.Widget {
 	MakeWidgetChangedFunction := func(actionfunc []func(jname string), ind int, jname string) gowid.WidgetChangedFunction {
 		return func(app gowid.IApp, w gowid.IWidget) { actionfunc[ind](jname) }
 	}
@@ -265,6 +285,7 @@ func MakeActionDialogForJail(jname string, title string, actions []string, actio
 	var lines *pile.Widget
 	var cb *gowid.WidgetCallback
 	menu := make([]gowid.IWidget, 0)
+	var retdialog *dialog.Widget = nil
 
 	var nact int = 0
 	if actions != nil {
@@ -291,12 +312,19 @@ func MakeActionDialogForJail(jname string, title string, actions []string, actio
 	containers = append(containers, &gowid.ContainerWidget{IWidget: divider.NewUnicode(), D: gowid.RenderFlow{}})
 	containers = append(containers, &gowid.ContainerWidget{IWidget: actionlistst, D: gowid.RenderFlow{}})
 	lines = pile.New(containers)
-	retdialog := dialog.New(
+	btnclose := dialog.Button{
+		Msg: "Close",
+		Action: gowid.MakeWidgetCallback("execsetfocus", gowid.WidgetChangedFunction(func(app gowid.IApp, w gowid.IWidget) {
+			tui.SetFocus(0)
+			retdialog.Close(tui.App)
+		})),
+	}
+	retdialog = dialog.New(
 		framed.NewSpace(
 			lines,
 		),
 		dialog.Options{
-			Buttons:         []dialog.Button{dialog.CloseD},
+			Buttons:         []dialog.Button{btnclose},
 			Modal:           true,
 			NoShadow:        true,
 			TabToButtons:    true,
@@ -317,7 +345,7 @@ func (tui *Tui) ExecShellCommand(title string, command string, args []string, lo
 	buf := make([]byte, MAXBUF)
 	log.Infof("Trying to start %s command with %v arguments", command, args)
 	logspace := edit.New(edit.Options{ReadOnly: true})
-	outdlg := CreateActionsLogDialog(logspace, tui.Console.Height())
+	outdlg := tui.CreateActionsLogDialog(logspace, tui.Console.Height())
 	/*
 		if cbsdActionsDialog != nil {
 			if cbsdActionsDialog.IsOpen() {
