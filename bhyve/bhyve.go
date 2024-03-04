@@ -47,7 +47,7 @@ const (
 	EDIT       = "Edit"
 	CLONE      = "Clone"
 	EXPORT     = "Export"
-	DESTROY    = "Destroy"
+	DESTROY    = "Destroy VM"
 	ACTIONS    = "Actions..."
 	EXIT       = "Exit"
 )

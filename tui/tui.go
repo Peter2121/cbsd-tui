@@ -48,6 +48,9 @@ import (
 var HALIGN_MIDDLE text.Options = text.Options{Align: gowid.HAlignMiddle{}}
 var HALIGN_LEFT text.Options = text.Options{Align: gowid.HAlignLeft{}}
 
+const FOCUS_ON_LIST int = 0
+const FOCUS_ON_TERMINAL int = 3
+
 var CbsdJailConsoleActive = ""
 
 type Tui struct {
@@ -146,7 +149,7 @@ func (tui *Tui) MakeDialogForJail(jname string, title string, txt []string,
 			for i := 0; i < nstrparams; i++ {
 				strparams = append(strparams, wideditparams[i].Text())
 			}
-			tui.SetFocus(0)
+			tui.SetFocus(FOCUS_ON_LIST)
 			okfunc(jname, boolparams, strparams)
 		})),
 	}
@@ -154,7 +157,7 @@ func (tui *Tui) MakeDialogForJail(jname string, title string, txt []string,
 	btncancel = dialog.Button{
 		Msg: "(ToSet)",
 		Action: gowid.MakeWidgetCallback("execsetfocus", gowid.WidgetChangedFunction(func(app gowid.IApp, w gowid.IWidget) {
-			tui.SetFocus(0)
+			tui.SetFocus(FOCUS_ON_LIST)
 			retdialog.Close(tui.App)
 		})),
 	}
@@ -199,7 +202,7 @@ func (tui *Tui) CreateActionsLogDialog(editWidget *edit.Widget, height int) *dia
 	btnclose := dialog.Button{
 		Msg: "Close",
 		Action: gowid.MakeWidgetCallback("execsetfocus", gowid.WidgetChangedFunction(func(app gowid.IApp, w gowid.IWidget) {
-			tui.SetFocus(0)
+			tui.SetFocus(FOCUS_ON_LIST)
 			actionlogdialog.Close(tui.App)
 		})),
 	}
@@ -315,7 +318,7 @@ func (tui *Tui) MakeActionDialogForJail(jname string, title string, actions []st
 	btnclose := dialog.Button{
 		Msg: "Close",
 		Action: gowid.MakeWidgetCallback("execsetfocus", gowid.WidgetChangedFunction(func(app gowid.IApp, w gowid.IWidget) {
-			tui.SetFocus(0)
+			tui.SetFocus(FOCUS_ON_LIST)
 			retdialog.Close(tui.App)
 		})),
 	}

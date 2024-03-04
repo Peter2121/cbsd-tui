@@ -76,6 +76,7 @@ var Containers []Container
 var mainTui *tui.Tui
 var gHeader *grid.Widget
 var gBmenu *columns.Widget
+var menuPanel *ResizeablePileWidget
 
 var lastFocusPosition int
 
@@ -173,16 +174,8 @@ func RefreshJailList() {
 		Containers[i].GetSignalRefresh().Connect(nil, func(a any) { RefreshJailList() })
 		Containers[i].GetSignalUpdated().Connect(nil, func(jname string) { UpdateJailLine(GetJailByName(jname)) })
 	}
-	/*
-		// TODO: correctly rewrite bottom menu
-		gBmenu = columns.New(MakeBottomMenu(), columns.Options{DoNotSetSelected: true, LeftKeys: make([]vim.KeyPress, 0), RightKeys: make([]vim.KeyPress, 0)})
-		listjails := vpadding.New(cbsdListJails, gowid.VAlignTop{}, gowid.RenderFlow{})
-		top_panel := NewResizeablePile([]gowid.IContainerWidget{
-			&gowid.ContainerWidget{IWidget: listjails, D: gowid.RenderWithWeight{W: 1}},
-			&gowid.ContainerWidget{IWidget: gBmenu, D: gowid.RenderWithUnits{U: 1}},
-		})
-		cbsdWidgets.SubWidgets()[0] = &gowid.ContainerWidget{IWidget: top_panel, D: gowid.RenderWithWeight{W: 1}}
-	*/
+	gBmenu = columns.New(MakeBottomMenu(), columns.Options{DoNotSetSelected: true, LeftKeys: make([]vim.KeyPress, 0), RightKeys: make([]vim.KeyPress, 0)})
+	menuPanel.Widget.SetSubWidgets([]gowid.IWidget{gBmenu}, app)
 	SetJailListFocus()
 }
 
@@ -280,7 +273,7 @@ func LoginToJail(jname string, t *tui.Tui) {
 		cbsdJailConsoleActive = jname
 		ReleaseFocus()
 		if cbsdWidgets.Focus() == 0 {
-			cbsdWidgets.SetFocus(app, 3)
+			cbsdWidgets.SetFocus(app, tui.FOCUS_ON_TERMINAL)
 		}
 	}
 }
@@ -350,12 +343,7 @@ func JailListButtonCallBack(jname string, key gowid.IKey) {
 		}
 	case tcell.KeyTab:
 		// Tab from jails list
-		cbsdWidgets.SetFocus(app, 3)
-		/*
-			if next, ok := cbsdWidgets.FindNextSelectable(gowid.Forwards, true); ok {
-				cbsdWidgets.SetFocus(app, next)
-			}
-		*/
+		cbsdWidgets.SetFocus(app, tui.FOCUS_ON_TERMINAL)
 		ReleaseFocus()
 	}
 }
@@ -619,7 +607,7 @@ func main() {
 		},
 	)
 
-	menu_panel := NewResizeablePile([]gowid.IContainerWidget{
+	menuPanel = NewResizeablePile([]gowid.IContainerWidget{
 		&gowid.ContainerWidget{IWidget: gBmenu, D: gowid.RenderWithUnits{U: 1}},
 	})
 
@@ -627,7 +615,7 @@ func main() {
 
 	cbsdWidgets = NewResizeablePile([]gowid.IContainerWidget{
 		&gowid.ContainerWidget{IWidget: top_panel, D: gowid.RenderWithWeight{W: 1}},
-		&gowid.ContainerWidget{IWidget: menu_panel, D: gowid.RenderWithUnits{U: 1}},
+		&gowid.ContainerWidget{IWidget: menuPanel, D: gowid.RenderWithUnits{U: 1}},
 		&gowid.ContainerWidget{IWidget: hline, D: gowid.RenderWithUnits{U: 1}},
 		&gowid.ContainerWidget{IWidget: cbsdJailConsole, D: gowid.RenderWithWeight{W: 1}},
 	})
