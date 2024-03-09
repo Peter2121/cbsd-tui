@@ -2,7 +2,7 @@ module jail
 
 go 1.19
 
-replace github.com/gcla/gowid => ../../gowid
+replace github.com/gcla/gowid v1.4.1-0.20221101015339-ce29e21d2804 => github.com/Peter2121/gowid v1.4.1-0.20240308210714-04c038c2ecd2
 replace tui => ../tui
 replace host => ../host
 
