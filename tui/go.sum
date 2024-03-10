@@ -1,3 +1,5 @@
+github.com/Peter2121/gowid v1.4.1-0.20240308210714-04c038c2ecd2 h1:vnMlM/OREwYcVio9e1s6KU7BBZsmQ0/Kg4WKjXd62Ds=
+github.com/Peter2121/gowid v1.4.1-0.20240308210714-04c038c2ecd2/go.mod h1:7T4Xzfznq31XvQyAOX+SZzQjvF7RX16mjXDXGB7R/44=
 github.com/alecthomas/template v0.0.0-20160405071501-a0175ee3bccc/go.mod h1:LOuyumcjzFXgccqObfd/Ljyb9UuFJ6TxHnclSeseNhc=
 github.com/alecthomas/units v0.0.0-20151022065526-2efee857e7cf/go.mod h1:ybxpYRFXyAe+OPACYpWeL0wqObRcbAqCMya13uyzqw0=
 github.com/araddon/dateparse v0.0.0-20210207001429-0eec95c9db7e/go.mod h1:DCaWoUhZrYW9p1lxo/cm8EmUOOzAPSEZNGF2DK1dJgw=

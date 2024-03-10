@@ -28,6 +28,7 @@ import (
 	"bhyve"
 	"host"
 	"jail"
+	"qemu"
 	"tui"
 
 	tcell "github.com/gdamore/tcell/v2"
@@ -43,6 +44,7 @@ var doas bool = true
 
 const CTYPE_JAIL string = "jail"
 const CTYPE_BHYVEVM string = "bhyvevm"
+const CTYPE_QEMUVM string = "qemuvm"
 
 var ctype string = CTYPE_JAIL
 
@@ -228,6 +230,7 @@ func GetMenuButton(jail Container, style string) *keypress.Widget {
 				gowid.MakeKeyExt(tcell.KeyCtrlR),
 				gowid.MakeKeyExt(tcell.KeyCtrlJ),
 				gowid.MakeKeyExt(tcell.KeyCtrlB),
+				gowid.MakeKeyExt(tcell.KeyCtrlQ),
 			},
 		},
 	)
@@ -339,6 +342,11 @@ func JailListButtonCallBack(jname string, key gowid.IKey) {
 	case tcell.KeyCtrlB:
 		if ctype != CTYPE_BHYVEVM {
 			ctype = CTYPE_BHYVEVM
+			RefreshJailList()
+		}
+	case tcell.KeyCtrlQ:
+		if ctype != CTYPE_QEMUVM {
+			ctype = CTYPE_QEMUVM
 			RefreshJailList()
 		}
 	case tcell.KeyTab:
@@ -469,7 +477,7 @@ func MakeBottomMenu() []gowid.IContainerWidget {
 
 func GetContainersFromDb(c_type string, db string) ([]Container, error) {
 	switch c_type {
-	case "jail":
+	case CTYPE_JAIL:
 		jails, err := jail.GetJailsFromDb(db)
 		if err != nil {
 			return make([]Container, 0), err
@@ -480,8 +488,19 @@ func GetContainersFromDb(c_type string, db string) ([]Container, error) {
 			cont[i] = jails[i]
 		}
 		return cont, nil
-	case "bhyvevm":
+	case CTYPE_BHYVEVM:
 		vms, err := bhyve.GetBhyveVmsFromDb(db)
+		if err != nil {
+			return make([]Container, 0), err
+		}
+		jlen := len(vms)
+		cont := make([]Container, jlen)
+		for i := range vms {
+			cont[i] = vms[i]
+		}
+		return cont, nil
+	case CTYPE_QEMUVM:
+		vms, err := qemu.GetQemuVmsFromDb(db)
 		if err != nil {
 			return make([]Container, 0), err
 		}
@@ -542,6 +561,17 @@ func main() {
 
 	f := RedirectLogger(logFileName)
 	defer f.Close()
+
+	if len(os.Args) > 1 {
+		ct := os.Args[1]
+		if (ct != CTYPE_JAIL) &&
+			(ct != CTYPE_BHYVEVM) &&
+			(ct != CTYPE_QEMUVM) {
+			fmt.Printf("Usage: cbsd-tui [jail|bhyvevm|qemuvm]\n")
+			os.Exit(1)
+		}
+		ctype = ct
+	}
 
 	doas, err = host.NeedDoAs()
 	if err != nil {
